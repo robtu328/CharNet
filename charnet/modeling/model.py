@@ -177,6 +177,9 @@ class CharNet(nn.Module):
 
         return char_bboxes, char_scores, word_instances
 
+    def loss_cal():
+        loss=1
+        return loss
     def build_transform(self):
         to_rgb_transform = T.Lambda(lambda x: x[[2, 1, 0]])
 
