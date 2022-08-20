@@ -142,6 +142,7 @@ def train_model( args, cfg, img_loader ):
         loss3 = dice_loss(score_map_char, pred_char_cls)
  
         loss_all = loss1 + loss2 + loss3
+        print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3)
         #scheduler.step()
         optimizer.zero_grad()
         loss_all.backward()
