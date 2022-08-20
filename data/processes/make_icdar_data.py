@@ -20,13 +20,30 @@ class MakeICDARData(DataProcess):
 
     def process(self, data):
         polygons = []
+        line_text = []
         ignore_tags = []
+        polygons_char = []
+        line_char = []
+        ignore_tags_char = []
+        
+        
         annotations = data['polys']
         for annotation in annotations:
             polygons.append(np.array(annotation['points']))
             # polygons.append(annotation['points'])
             ignore_tags.append(annotation['ignore'])
+            line_text.append(annotation['text'])
         ignore_tags = np.array(ignore_tags, dtype=np.uint8)
+        
+        annotations = data['polys_char']
+        for annotation in annotations:
+            polygons_char.append(np.array(annotation['points']))
+            # polygons.append(annotation['points'])
+            ignore_tags_char.append(annotation['ignore'])
+            line_char.append(annotation['text'])
+        ignore_tags_char = np.array(ignore_tags_char, dtype=np.uint8)
+        
+        
         filename = data.get('filename', data['data_id'])
         if self.debug:
             self.draw_polygons(data['image'], polygons, ignore_tags)
@@ -34,9 +51,13 @@ class MakeICDARData(DataProcess):
         return OrderedDict(image=data['image'],
                            polygons=polygons,
                            ignore_tags=ignore_tags,
+                           polygons_char=polygons_char,
+                           ignore_tags_char=ignore_tags_char,                           
                            shape=shape,
                            filename=filename,
-                           is_training=data['is_training'])
+                           is_training=data['is_training'], 
+                           lines_text=line_text, 
+                           lines_char=line_char)
 
     def draw_polygons(self, image, polygons, ignore_tags):
         for i in range(len(polygons)):

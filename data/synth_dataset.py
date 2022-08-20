@@ -9,7 +9,22 @@ import glob
 from concern.config import Configurable, State
 import math
 import scipy.io
+#import data.data_utils
+from data.data_utils import generate_rbox
 
+def preprocess_words(word_ar):
+    words = []
+    for ii in range(np.shape(word_ar)[0]):
+        s = word_ar[ii]
+        start = 0
+        while s[start] == ' ' or s[start] == '\n':
+            start += 1
+        for i in range(start + 1, len(s) + 1):
+            if i == len(s) or s[i] == '\n' or s[i] == ' ':
+                if start != i:
+                    words.append(s[start : i])
+                start = i + 1
+    return words
 
 class SynthDataset(data.Dataset, Configurable):
     r'''Dataset reading from images.
@@ -58,13 +73,23 @@ class SynthDataset(data.Dataset, Configurable):
                 for timg, ttxt in zip(gt_word_list, txt_list):
                    if(len(timg.shape)==2):
                      timg=timg.reshape(-1, 4, 1)  
+                   ttxt=preprocess_words(ttxt)
                    gt_map.append({'poly':np.transpose(timg, (2,1,0)),'txt':ttxt})
-                gt_map_char= [''.join((''.join(np.reshape(ttxt, (1, -1)).tolist()[0])).split()) for ttxt in txt_list]
+                   
+                for timg, ttxt in zip(gt_char_list, txt_list):
+                   if(len(timg.shape)==2):
+                     timg=timg.reshape(-1, 4, 1)  
+                   ttxt=''.join((''.join(np.reshape(ttxt, (1, -1)).tolist()[0])).split())
+                   gt_map_char.append({'poly':np.transpose(timg, (2,1,0)),'txt':ttxt})
+                   
+                   
+#                gt_map_char= [''.join((''.join(np.reshape(ttxt, (1, -1)).tolist()[0])).split()) for ttxt in txt_list]
             else:
                 image_path = [self.data_dir[i]+timg[0] for timg in image_list]
                 for timg, ttxt in zip(gt_word_list, txt_list):
                    if(len(timg.shape)==2):
                      timg=timg.reshape(-1, 4, 1)  
+                   ttxt=preprocess_words(ttxt)
                    gt_map.append({'poly':np.transpose(timg, (2,1,0)),'txt':ttxt})
                 
                 for timg, ttxt in zip(gt_char_list, txt_list):
@@ -110,11 +135,17 @@ class SynthDataset(data.Dataset, Configurable):
     def load_ann_char(self):
         res = []
         for gt in self.gt_maps_char:
+        #for i in range(len(self.gt_maps_char)):
+            #gt = self.gt_maps_char[i]
             lines = []
+            if (len(gt['txt']) != gt['poly'].shape[0]):
+                raise NameError('Charter box size do not match txt lenth', len(gt['txt']), 'to ', gt['poly'].shape[0])
             
+            if '##' in gt['txt']:
+                raise NameError('# is found string = ', gt['txt'])
+                
             for line, text in zip(gt['poly'], gt['txt']):
                 item = {}
-
                 item['poly'] = line.round().tolist()
                 item['text'] = text
                 lines.append(item)
@@ -136,11 +167,28 @@ class SynthDataset(data.Dataset, Configurable):
             data['data_id'] = image_path.split('/')[-1]
         data['image'] = img
         target = self.targets[index]
+        target_char = self.targets_char[index]
         data['lines'] = target
+        data['chars'] = target_char
+        #print ("image size=", img.shape)
+        #print("Start index process ", index)
         if self.processes is not None:
             for data_process in self.processes:
                 data = data_process(data)
+            
+            #score_map, geo_map, training_mask, rects=generate_rbox((data['image'].shape[1], data['image'].shape[0]), data['polygons'], data['lines_text'])
+            #data['score_map']=score_map
+            #data['geo_map']=geo_map
+            #data['training_mask']=training_mask
+            #data['rects']=rects
+        #print("End index process, image size =", data['image'].shape, "  index = ", index)
+        #print("End index process, len(data) =", len(data))
+        
+        #score_map, geo_map, training_mask = generate_rbox((img.shape[1], img.shape[0]), data['lines']['poly'], data['lines']['text'])
+        
+        #print (data.keys())
         return data
 
     def __len__(self):
         return len(self.image_paths)
+        #return len(self.image_paths)

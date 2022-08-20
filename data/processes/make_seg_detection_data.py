@@ -27,7 +27,9 @@ class MakeSegDetectionData(DataProcess):
         '''
         image = data['image']
         polygons = data['polygons']
+        polygons_char = data['polygons_char']
         ignore_tags = data['ignore_tags']
+        ignore_tags_char = data['ignore_tags_char']
         image = data['image']
         filename = data['filename']
 
@@ -35,8 +37,17 @@ class MakeSegDetectionData(DataProcess):
         if data['is_training']:
             polygons, ignore_tags = self.validate_polygons(
                 polygons, ignore_tags, h, w)
+
+            polygons_char, ignore_tags_char = self.validate_polygons(
+                polygons_char, ignore_tags_char, h, w)
+            
+            
         gt = np.zeros((1, h, w), dtype=np.float32)
         mask = np.ones((h, w), dtype=np.float32)
+        gt_char = np.zeros((1, h, w), dtype=np.float32)
+        mask_char = np.ones((h, w), dtype=np.float32)
+       
+        
         for i in range(len(polygons)):
             polygon = polygons[i]
             height = max(polygon[:, 1]) - min(polygon[:, 1])
@@ -66,11 +77,41 @@ class MakeSegDetectionData(DataProcess):
                 shrinked = np.array(shrinked[0]).reshape(-1, 2)
                 cv2.fillPoly(gt[0], [shrinked.astype(np.int32)], 1)
 
+
+        for i in range(len(polygons_char)):
+            polygon_char = polygons_char[i]
+            height = max(polygon_char[:, 1]) - min(polygon_char[:, 1])
+            width = max(polygon_char[:, 0]) - min(polygon_char[:, 0])
+
+            if ignore_tags_char[i]: #or min(height, width) < self.min_text_size:
+                cv2.fillPoly(mask_char, polygon_char.astype(
+                    np.int32)[np.newaxis, :, :], 0)
+                ignore_tags_char[i] = True
+            else:
+                polygon_shape = Polygon(polygon_char)
+                distance = polygon_shape.area * \
+                    (1 - np.power(self.shrink_ratio, 2)) / polygon_shape.length
+                subject = [tuple(l) for l in polygons_char[i]]
+                padding = pyclipper.PyclipperOffset()
+                padding.AddPath(subject, pyclipper.JT_ROUND,
+                                pyclipper.ET_CLOSEDPOLYGON)
+                shrinked = padding.Execute(-distance)
+                if shrinked == []:
+                    cv2.fillPoly(mask_char, polygon_char.astype(
+                        np.int32)[np.newaxis, :, :], 0)
+                    ignore_tags_char[i] = True
+                    continue
+                shrinked = np.array(shrinked[0]).reshape(-1, 2)
+                cv2.fillPoly(gt_char[0], [shrinked.astype(np.int32)], 1)
+
         if filename is None:
             filename = ''
         data.update(image=image,
                     polygons=polygons,
-                    gt=gt, mask=mask, filename=filename)
+                    gt=gt, mask=mask, 
+                    polygons_char=polygons_char,
+                    gt_char=gt_char, mask_char=mask_char,
+                    filename=filename)
         return data
 
     def validate_polygons(self, polygons, ignore_tags, h, w):

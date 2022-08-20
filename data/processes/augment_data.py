@@ -60,6 +60,7 @@ class AugmentDetectionData(AugmentData):
             return data
 
         line_polys = []
+        char_polys = []
         for line in data['lines']:
             if self.only_resize:
                 new_poly = [(p[0], p[1]) for p in line['poly']]
@@ -71,6 +72,20 @@ class AugmentDetectionData(AugmentData):
                 'text': line['text'],
             })
         data['polys'] = line_polys
+
+        for line in data['chars']:
+            if self.only_resize:
+                new_poly = [(p[0], p[1]) for p in line['poly']]
+            else:
+                new_poly = self.may_augment_poly(aug, shape, line['poly'])
+            char_polys.append({
+                'points': new_poly,
+                'ignore': False,
+                'text': line['text'],
+            })
+        data['polys_char'] = char_polys
+            
+        
         return data
 
     def may_augment_poly(self, aug, img_shape, poly):

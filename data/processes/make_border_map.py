@@ -6,6 +6,9 @@ import pyclipper
 
 from concern.config import State
 from .data_process import DataProcess
+from data.data_utils import generate_rbox
+from charnet.modeling.postprocessing import load_char_rev_dict
+
 
 
 class MakeBorderMap(DataProcess):
@@ -16,11 +19,14 @@ class MakeBorderMap(DataProcess):
     shrink_ratio = State(default=0.4)
     thresh_min = State(default=0.3)
     thresh_max = State(default=0.7)
+    charindx = State(default="")
+    char_rev_dict = []
 
     def __init__(self, cmd={}, *args, **kwargs):
         self.load_all(cmd=cmd, **kwargs)
         warnings.simplefilter("ignore")
-
+        if (self.charindx !=""):
+            self.char_rev_dict=load_char_rev_dict(self.charindx)
     def process(self, data, *args, **kwargs):
         r'''
         required keys:
@@ -30,17 +36,54 @@ class MakeBorderMap(DataProcess):
         '''
         image = data['image']
         polygons = data['polygons']
+        lines_text = data['lines_text']
         ignore_tags = data['ignore_tags']
-        canvas = np.zeros(image.shape[:2], dtype=np.float32)
-        mask = np.zeros(image.shape[:2], dtype=np.float32)
+        #canvas = np.zeros(image.shape[:2], dtype=np.float32)
+        #mask = np.zeros(image.shape[:2], dtype=np.float32)
 
-        for i in range(len(polygons)):
-            if ignore_tags[i]:
-                continue
-            self.draw_border_map(polygons[i], canvas, mask=mask)
-        canvas = canvas * (self.thresh_max - self.thresh_min) + self.thresh_min
-        data['thresh_map'] = canvas
-        data['thresh_mask'] = mask
+        #for i in range(len(polygons)):
+        #    if ignore_tags[i]:
+        #        continue
+        #    self.draw_border_map(polygons[i], canvas, mask=mask)
+        
+        score_map, geo_map, training_mask, rects=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons, ignore_tags, lines_text)
+        #print('Rects', rects)
+        #print('Poly:', polygons)
+        data['score_map'] = score_map
+        data['geo_map'] = geo_map
+        data['training_mask'] = training_mask
+        
+        #canvas = canvas * (self.thresh_max - self.thresh_min) + self.thresh_min
+        #data['thresh_map'] = canvas
+        #data['thresh_mask'] = mask
+        
+        polygons_char = data['polygons_char']
+        ignore_tags_char = data['ignore_tags_char']
+        lines_char = data['lines_char']
+        
+        
+        
+        #canvas_char = np.zeros(image.shape[:2], dtype=np.float32)
+        #mask_char = np.zeros(image.shape[:2], dtype=np.float32)
+
+        #for i in range(len(polygons_char)):
+        #    if ignore_tags_char[i]:
+        #        continue
+        #    self.draw_border_map(polygons_char[i], canvas_char, mask=mask_char)
+            
+        score_map_char, geo_map_char, training_mask_char, rects_char=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons_char, ignore_tags_char, lines_char, 'C', self.char_rev_dict)
+        data['score_map_char'] = score_map_char
+        data['geo_map_char'] = geo_map_char
+        data['training_mask_char'] = training_mask_char
+        #print('Rects_Char', rects_char)
+        #print('Poly_Char:', polygons_char)
+
+        #canvas_char = canvas_char * (self.thresh_max - self.thresh_min) + self.thresh_min
+        #data['thresh_map_char'] = canvas_char
+        #data['thresh_mask_char'] = mask_char        
+        
+        
+        
         return data
 
     def draw_border_map(self, polygon, canvas, mask):

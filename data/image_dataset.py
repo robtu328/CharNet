@@ -95,6 +95,8 @@ class ImageDataset(data.Dataset, Configurable):
         if self.processes is not None:
             for data_process in self.processes:
                 data = data_process(data)
+            
+            
         return data
 
     def __len__(self):

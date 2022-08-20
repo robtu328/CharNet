@@ -36,6 +36,15 @@ def load_char_dict(path, seperator=chr(31)):
     return char_dict
 
 
+def load_char_rev_dict(path, seperator=chr(31)):
+    char_rev_dict = dict()
+    with open(path, 'rt') as fr:
+        for line in fr:
+            sp = line.strip('\n').split(seperator)
+            char_rev_dict[sp[0].upper()] = int(sp[1])
+    return char_rev_dict
+
+
 class WordInstance:
     def __init__(self, word_bbox, word_bbox_score, text, text_score, char_scores):
         self.word_bbox = word_bbox
@@ -62,6 +71,7 @@ class OrientedTextPostProcessing(nn.Module):
         self.num_char_class = num_char_class
         self.char_nms_iou_thresh = char_nms_iou_thresh
         self.char_dict = load_char_dict(char_dict_file)
+        self.char_rev_dict = load_char_rev_dict(char_dict_file)
         self.lexicon = load_lexicon(word_lexicon_path)
 
     def forward(
@@ -228,6 +238,9 @@ class OrientedTextPostProcessing(nn.Module):
                 return 0
             else:
                 inter = char_poly.intersection(word_poly)
+                if char_poly.area + word_poly.area - inter.area == 0:
+                    print("Zero Area")
+                    return 0
                 return inter.area / (char_poly.area + word_poly.area - inter.area)
 
         def decode(char_scores):

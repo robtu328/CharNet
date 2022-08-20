@@ -19,34 +19,67 @@ class RandomCropData(DataProcess):
         img = data['image']
         ori_img = img
         ori_lines = data['polys']
+        ori_chars = data['polys_char']
 
         all_care_polys = [line['points']
                           for line in data['polys'] if not line['ignore']]
+        all_care_polys_char = [line['points']
+                          for line in data['polys_char']]
+        
         crop_x, crop_y, crop_w, crop_h = self.crop_area(img, all_care_polys)
-        scale_w = self.size[0] / crop_w
-        scale_h = self.size[1] / crop_h
+        #crop_x, crop_y, crop_w, crop_h = self.crop_area(img, all_care_polys)
+        #crop_xc, crop_yc, crop_wc, crop_hc = self.crop_area(img, all_care_polys_char)
+        
+        
+        scale_w = self.size[0] / crop_w  
+        scale_h = self.size[1] / crop_h 
+        #print ("scale w, h", scale_w, " ", scale_h)
         scale = min(scale_w, scale_h)
-        h = int(crop_h * scale)
-        w = int(crop_w * scale)
+        
+        new_w = int(crop_w * scale /16) *16
+        new_h = int(crop_h * scale /16) *16
+        new_scale_w = new_w / crop_w
+        new_scale_h = new_h / crop_h
+        
+        h = int(crop_h * scale ) 
+        w = int(crop_w * scale ) 
+        
         padimg = np.zeros(
             (self.size[1], self.size[0], img.shape[2]), img.dtype)
         padimg[:h, :w] = cv2.resize(
             img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w], (w, h))
+        #padimg[:new_h, :new_w] = cv2.resize(
+            #img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w], (new_w, new_h))
         img = padimg
 
         lines = []
         for line in data['polys']:
             poly = ((np.array(line['points']) -
                      (crop_x, crop_y)) * scale).tolist()
-            if not self.is_poly_outside_rect(poly, 0, 0, w, h):
+                     #(crop_x, crop_y)) * np.array([new_scale_w, new_scale_h]) ).tolist()
+            #if not self.is_poly_outside_rect(poly, 0, 0, new_w, new_h):
+            if not self.is_poly_outside_rect(poly, 0, 0, w, h):    
                 lines.append({**line, 'points': poly})
+        chars = []
+        for line in data['polys_char']:
+            poly = ((np.array(line['points']) -
+                     (crop_x, crop_y)) * scale).tolist()
+                     #(crop_x, crop_y)) * np.array([new_scale_w, new_scale_h])).tolist()
+            #if not self.is_poly_outside_rect(poly, 0, 0, new_w, new_h):
+            if not self.is_poly_outside_rect(poly, 0, 0, w, h):
+                chars.append({**line, 'points': poly})
+                
+                
         data['polys'] = lines
+        data['polys_char'] = chars
 
         if self.require_original_image:
             data['image'] = ori_img
         else:
             data['image'] = img
         data['lines'] = ori_lines
+        data['chars'] = ori_chars
+        
         data['scale_w'] = scale
         data['scale_h'] = scale
 
@@ -132,13 +165,23 @@ class RandomCropData(DataProcess):
             if xmax - xmin < self.min_crop_side_ratio * w or ymax - ymin < self.min_crop_side_ratio * h:
                 # area too small
                 continue
-            num_poly_in_rect = 0
+            
+            num_poly_in_rect = 1
             for poly in polys:
-                if not self.is_poly_outside_rect(poly, xmin, ymin, xmax - xmin, ymax - ymin):
-                    num_poly_in_rect += 1
+                if self.is_poly_outside_rect(poly, xmin, ymin, xmax - xmin, ymax - ymin):
+                    num_poly_in_rect = 0
                     break
 
             if num_poly_in_rect > 0:
                 return xmin, ymin, xmax - xmin, ymax - ymin
+            
+            #num_poly_in_rect = 0
+            #for poly in polys:
+            #    if not self.is_poly_outside_rect(poly, xmin, ymin, xmax - xmin, ymax - ymin):
+            #        num_poly_in_rect += 1
+            #        break
+
+            #if num_poly_in_rect > 0:
+            #    return xmin, ymin, xmax - xmin, ymax - ymin
 
         return 0, 0, w, h

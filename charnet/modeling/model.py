@@ -145,8 +145,14 @@ class CharNet(nn.Module):
         self.transform = self.build_transform()
 
     def forward(self, im, im_scale_w, im_scale_h, original_im_w, original_im_h):
-        im = self.transform(im).cuda()
-        im = im.unsqueeze(0)
+        #im = self.transform(im).cuda()
+        #im=im.cuda()
+        
+        #im = im.cuda()
+        #im = im.unsqueeze(0)
+        
+        #myconv = nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False)
+        #myconv.cuda()
         features = self.backbone(im)
 
         pred_word_fg, pred_word_tblr, pred_word_orient = self.word_detector(features)
@@ -157,30 +163,84 @@ class CharNet(nn.Module):
         pred_char_fg = F.softmax(pred_char_fg, dim=1)
         pred_char_cls = F.softmax(recognition_results, dim=1)
 
-        pred_word_fg, pred_word_tblr, \
-        pred_word_orient, pred_char_fg, \
-        pred_char_tblr, pred_char_cls, \
-        pred_char_orient = to_numpy_or_none(
-            pred_word_fg, pred_word_tblr,
-            pred_word_orient, pred_char_fg,
-            pred_char_tblr, pred_char_cls,
-            pred_char_orient
+        if pred_word_fg is None:
+            pred_word_fg_np = pred_word_fg
+        else:
+            pred_word_fg_np = pred_word_fg.clone().detach()
+        
+        if pred_word_tblr is None:  
+            pred_word_tblr_np = pred_word_tblr
+        else:
+            pred_word_tblr_np = pred_word_tblr.clone().detach()
+            
+        if pred_word_orient is None:  
+            pred_word_orient_np = pred_word_orient
+        else:    
+            pred_word_orient_np = pred_word_orient.clone().detach()
+            
+        if pred_char_fg is None:  
+            pred_char_fg_np = pred_char_fg
+        else:  
+            pred_char_fg_np = pred_char_fg.clone().detach()
+            
+        if pred_char_tblr is None:  
+            pred_char_tblr_np = pred_char_tblr
+        else:  
+            pred_char_tblr_np = pred_char_tblr.clone().detach()
+            
+        if pred_char_cls is None:  
+            pred_char_cls_np = pred_char_cls
+        else:  
+            pred_char_cls_np = pred_char_cls.clone().detach()
+            
+        if pred_char_orient is None:  
+            pred_char_orient_np = pred_char_orient
+        else:  
+            pred_char_orient_np = pred_char_orient.clone().detach()
+
+        pred_word_fg_np, pred_word_tblr_np, \
+        pred_word_orient_np, pred_char_fg_np, \
+        pred_char_tblr_np, pred_char_cls_np, \
+        pred_char_orient_np = to_numpy_or_none(
+            pred_word_fg_np, pred_word_tblr_np,
+            pred_word_orient_np, pred_char_fg_np,
+            pred_char_tblr_np, pred_char_cls_np,
+            pred_char_orient_np
         )
 
         char_bboxes, char_scores, word_instances = self.post_processing(
-            pred_word_fg[0, 1], pred_word_tblr[0],
-            pred_word_orient[0, 0], pred_char_fg[0, 1],
-            pred_char_tblr[0], pred_char_cls[0],
+            pred_word_fg_np[0, 1], pred_word_tblr_np[0],
+            pred_word_orient_np[0, 0], pred_char_fg_np[0, 1],
+            pred_char_tblr_np[0], pred_char_cls_np[0],
             im_scale_w, im_scale_h,
             original_im_w, original_im_h
         )
 
-        return char_bboxes, char_scores, word_instances
+        return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls 
 
     def loss_cal():
         loss=1
         return loss
     def build_transform(self):
+        to_rgb_transform = T.Lambda(lambda x: x[[2, 1, 0]])
+
+        normalize_transform = T.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        )
+
+        transform = T.Compose(
+            [
+                T.ToPILImage(),
+                T.ToTensor(),
+                to_rgb_transform,
+                normalize_transform,
+            ]
+        )
+        return transform
+
+
+    def build_invtransform(self):
         to_rgb_transform = T.Lambda(lambda x: x[[2, 1, 0]])
 
         normalize_transform = T.Normalize(
