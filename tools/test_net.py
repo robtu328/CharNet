@@ -73,8 +73,17 @@ if __name__ == '__main__':
         im_file = os.path.join(args.image_dir, im_name)
         im_original = cv2.imread(im_file)
         im, scale_w, scale_h, original_w, original_h = resize(im_original, size=cfg.INPUT_SIZE)
+
+        im = charnet.transform(im).cuda()
+        im = im.unsqueeze(0)
+        
         with torch.no_grad():
-            char_bboxes, char_scores, word_instances = charnet(im, scale_w, scale_h, original_w, original_h)
+            char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
+            pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls\
+            = charnet(im, scale_w, scale_h, original_w, original_h)
+            
+            
+            #char_bboxes, char_scores, word_instances = charnet(im, scale_w, scale_h, original_w, original_h)
             save_word_recognition(
                 word_instances, os.path.splitext(im_name)[0],
                 args.results_dir, cfg.RESULTS_SEPARATOR
