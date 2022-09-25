@@ -106,10 +106,10 @@ def train_model( args, cfg, img_loader ):
 
 
 #    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
-    for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char) in img_loader: 
+    for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np) in img_loader: 
         char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
             pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls \
-            = charnet(images.cuda(), 1, 1, images[0].size()[0], images.size()[1])
+            = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
             
             
         #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))

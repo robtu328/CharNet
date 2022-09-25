@@ -15,6 +15,12 @@ from .rotated_nms import nms, nms_with_char_cls, \
 from shapely.geometry import Polygon
 import pyclipper
 
+from sklearn.cluster import DBSCAN
+from sklearn import metrics
+
+import matplotlib.pyplot as plt
+
+
 
 def load_lexicon(path):
     lexicon = list()
@@ -81,7 +87,7 @@ class OrientedTextPostProcessing(nn.Module):
             im_scale_w, im_scale_h,
             original_im_w, original_im_h
     ):
-        ss_word_bboxes = self.parse_word_bboxes(
+        ss_word_bboxes, valid_boxes = self.parse_word_bboxes(
             pred_word_fg, pred_word_tblr, pred_word_orient,
             im_scale_w, im_scale_h, original_im_w, original_im_h
         )
@@ -96,7 +102,7 @@ class OrientedTextPostProcessing(nn.Module):
 
         word_instances = self.filter_word_instances(word_instances, self.lexicon)
 
-        return char_bboxes, char_scores, word_instances
+        return char_bboxes, char_scores, word_instances, valid_boxes, ss_word_bboxes
 
     def parse_word_bboxes(
             self, pred_word_fg, pred_word_tblr,
@@ -106,6 +112,9 @@ class OrientedTextPostProcessing(nn.Module):
         word_stride = self.word_stride
         word_keep_rows, word_keep_cols = np.where(pred_word_fg > self.word_min_score)
         oriented_word_bboxes = np.zeros((word_keep_rows.shape[0], 9), dtype=np.float32)
+        
+        word_centers = np.zeros((word_keep_rows.shape[0], 2), dtype=np.float32)
+        
         for idx in range(oriented_word_bboxes.shape[0]):
             y, x = word_keep_rows[idx], word_keep_cols[idx]
             t, b, l, r = pred_word_tblr[:, y, x]
@@ -117,12 +126,34 @@ class OrientedTextPostProcessing(nn.Module):
                 o, scale_w * word_stride * x, scale_h * word_stride * y)
             oriented_word_bboxes[idx, :8] = np.array(four_points, dtype=np.float32).flat
             oriented_word_bboxes[idx, 8] = score
+            word_centers[idx]=[y,x]
+ 
+        valid_boxes=[]
+        
+        if(np.any(word_centers)):
+           db = DBSCAN(eps=2, min_samples=10).fit(word_centers)
+           labels = db.labels_
+           n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        
+           for idx in range(n_clusters):
+             pool = np.where(labels==idx)
+             poolmax = np.amax(oriented_word_bboxes[pool,8])
+             maxbox = np.where(oriented_word_bboxes[pool,8][0] == poolmax)
+             maxidx = pool[0][maxbox[0][0]]
+             valid_boxes.append([maxidx, np.array([[oriented_word_bboxes[maxidx][1], oriented_word_bboxes[maxidx][0]],\
+                                                   [oriented_word_bboxes[maxidx][3], oriented_word_bboxes[maxidx][2]],\
+                                                   [oriented_word_bboxes[maxidx][5], oriented_word_bboxes[maxidx][4]],\
+                                                   [oriented_word_bboxes[maxidx][7], oriented_word_bboxes[maxidx][6]]])])
+ 
+   
         keep, oriented_word_bboxes = nms(oriented_word_bboxes, self.word_nms_iou_thresh, num_neig=1)
+
+
         oriented_word_bboxes = oriented_word_bboxes[keep]
         oriented_word_bboxes[:, :8] = oriented_word_bboxes[:, :8].round()
         oriented_word_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, oriented_word_bboxes[:, 0:8:2]))
         oriented_word_bboxes[:, 1:8:2] = np.maximum(0, np.minimum(H-1, oriented_word_bboxes[:, 1:8:2]))
-        return oriented_word_bboxes
+        return oriented_word_bboxes, valid_boxes
 
     def parse_char(
             self, pred_word_fg, pred_char_fg,
@@ -142,6 +173,7 @@ class OrientedTextPostProcessing(nn.Module):
 
         oriented_char_bboxes = np.zeros((char_keep_rows.shape[0], 9), dtype=np.float32)
         char_scores = np.zeros((char_keep_rows.shape[0], self.num_char_class), dtype=np.float32)
+        
         for idx in range(oriented_char_bboxes.shape[0]):
             y, x = char_keep_rows[idx], char_keep_cols[idx]
             t, b, l, r = pred_char_tblr[:, y, x]

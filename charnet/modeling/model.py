@@ -16,6 +16,7 @@ from charnet.modeling.layers import Scale
 import torchvision.transforms as T
 from .postprocessing import OrientedTextPostProcessing
 from charnet.config import cfg
+import numpy as np
 
 
 def _conv3x3_bn_relu(in_channels, out_channels, dilation=1):
@@ -144,7 +145,7 @@ class CharNet(nn.Module):
 
         self.transform = self.build_transform()
 
-    def forward(self, im, im_scale_w, im_scale_h, original_im_w, original_im_h):
+    def forward(self, im, im_scale_w, im_scale_h, original_im_w, original_im_h, images_np):
         #im = self.transform(im).cuda()
         #im=im.cuda()
         
@@ -208,14 +209,31 @@ class CharNet(nn.Module):
             pred_char_orient_np
         )
 
-        char_bboxes, char_scores, word_instances = self.post_processing(
-            pred_word_fg_np[0, 1], pred_word_tblr_np[0],
-            pred_word_orient_np[0, 0], pred_char_fg_np[0, 1],
-            pred_char_tblr_np[0], pred_char_cls_np[0],
-            im_scale_w, im_scale_h,
-            original_im_w, original_im_h
-        )
-
+        char_bboxes=[]
+        char_scores=[]
+        word_instances=[]
+        valid_boxes=[]
+        ss_word_bboxes=[]
+        for idx in range(im.size()[0]):
+            char_bboxe, char_score, word_instance, valid_boxe, ss_word_bboxe = self.post_processing(
+                pred_word_fg_np[0, 1], pred_word_tblr_np[0],
+                pred_word_orient_np[0, 0], pred_char_fg_np[0, 1],
+                pred_char_tblr_np[0], pred_char_cls_np[0],
+                im_scale_w, im_scale_h,
+                original_im_w, original_im_h
+            )
+            char_bboxes.append(char_bboxe)
+            char_scores.append(char_score)
+            word_instances.append(word_instance)
+            valid_boxes.append(valid_boxe)
+            ss_word_bboxes.append(ss_word_bboxe)
+ 
+        char_bboxes=np.array(char_bboxes)
+        char_scores=np.array(char_scores)
+        word_instances=np.array(word_instances)
+        valid_boxes=np.array(valid_boxes)
+        ss_word_bboxes=np.array(ss_word_bboxes)
+            
         return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls 
 
     def loss_cal():

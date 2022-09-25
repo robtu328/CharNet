@@ -29,6 +29,7 @@ def collate_fn(batch):
 
     #print("Length = ", bs, "thresh_map = ", thresh_map)
     images = []
+    images_np = []
 #    polygons = []
 #    polygon_chars = []
     lines_texts = []
@@ -56,6 +57,7 @@ def collate_fn(batch):
             a = a.permute(2, 1, 0)
             #a = img[i]
             images.append(a)
+            images_np.append(batch[index]['image'])
            
             #b = torch.FloatTensor(batch[index]['polygons'])
             #b = b.permute(2, 0, 1)
@@ -138,7 +140,7 @@ def collate_fn(batch):
 
     #return images, score_maps, geo_maps, training_masks
     #return images, polygons, polygon_chars, lines_texts, lines_chars, gts, masks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars 
-    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char 
+    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np 
 
 def default_collate(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
