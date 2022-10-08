@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 
 
+
 def dice_loss(true, logits, eps=1e-7):
     """Computes the Sørensen–Dice loss.
     Note that PyTorch optimizers minimize a loss. In this
@@ -62,28 +63,185 @@ def dice_coefficient(y_true_cls, y_pred_cls,
 
     return loss
 
+
+def Giou_np(bbox_p, bbox_g):
+    """
+    :param bbox_p: predict of bbox(N,4)(x1,y1,x2,y2)
+    :param bbox_g: groundtruth of bbox(N,4)(x1,y1,x2,y2)
+    :return:
+    """
+    # for details should go to https://arxiv.org/pdf/1902.09630.pdf
+    # ensure predict's bbox form
+    #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+    d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
+    #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
+    d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
+    
+#    area_g = (d1_gt + d3_gt) * (d2_gt + d4_gt)
+#    area_p = (d1_pred + d3_pred) * (d2_pred + d4_pred)
+    
+#    x1p = torch.minimum(bbox_p[:, 0], bbox_p[:, 2]).reshape(-1,1)
+#    x2p = torch.maximum(bbox_p[:, 0], bbox_p[:, 2]).reshape(-1,1)
+#    y1p = torch.minimum(bbox_p[:, 1], bbox_p[:, 3]).reshape(-1,1)
+#    y2p = torch.maximum(bbox_p[:, 1], bbox_p[:, 3]).reshape(-1,1)
+
+#    bbox_p = torch.cat((x1p, y1p, x2p, y2p), 1)
+    # calc area of Bg
+#    area_p = (bbox_p[:, 2] - bbox_p[:, 0]) * (bbox_p[:, 3] - bbox_p[:, 1])
+    # calc area of Bp
+#    area_g = (bbox_g[:, 2] - bbox_g[:, 0]) * (bbox_g[:, 3] - bbox_g[:, 1])
+
+    # cal intersection
+    #d1I=torch.min(torch.cat((d1_gt, d1_pred), 1), 1).values.reshape(-1, 1)
+    #d2I=torch.min(torch.cat((d2_gt, d2_pred), 1), 1).values.reshape(-1, 1)
+    #d3I=torch.min(torch.cat((d3_gt, d3_pred), 1), 1).values.reshape(-1, 1)
+    #d4I=torch.min(torch.cat((d4_gt, d4_pred), 1), 1).values.reshape(-1, 1)
+    #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
+
+    area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+    area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+    
+    w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+    h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+    I = w_union * h_union
+    U = area_gt + area_pred - I
+    
+    w_enclose = torch.max(d3_gt, d3_pred) + torch.max(d4_gt, d4_pred)
+    h_enclose = torch.max(d1_gt, d1_pred) + torch.max(d2_gt, d2_pred)
+    area_c = w_enclose * h_enclose
+    
+    #x1I = torch.maximum(bbox_p[:, 0], bbox_g[:, 0])
+    #y1I = torch.maximum(bbox_p[:, 1], bbox_g[:, 1])
+    #x2I = torch.minimum(bbox_p[:, 2], bbox_g[:, 2])
+    #y2I = torch.minimum(bbox_p[:, 3], bbox_g[:, 3])
+    #I = torch.maximum((y2I - y1I), 0) * torch.maximum((x2I - x1I), 0)
+
+    # find enclosing box
+    #x1C = torch.minimum(bbox_p[:, 0], bbox_g[:, 0])
+    #y1C = torch.minimum(bbox_p[:, 1], bbox_g[:, 1])
+    #x2C = torch.maximum(bbox_p[:, 2], bbox_g[:, 2])
+    #y2C = torch.maximum(bbox_p[:, 3], bbox_g[:, 3])
+
+    # calc area of Bc
+    #area_c = (x2C - x1C) * (y2C - y1C)
+    U = area_pred + area_gt - I
+    iou = 1.0 * I / U
+
+    # Giou
+    giou = iou - (area_c - U) / area_c
+
+    # loss_iou = 1 - iou loss_giou = 1 - giou
+    loss_iou = 1.0 - iou
+    loss_giou = 1.0 - giou
+    return giou, loss_iou, loss_giou
+
+
+
 class LossFunc(nn.Module):
-    def __init__(self):
+    def __init__(self, losstype='iou'):
         super(LossFunc, self).__init__()
+        self.losstype = losstype
         return 
     
+    
+    def giou(self, bbox_p, bbox_g):
+        """
+        :param bbox_p: predict of bbox(N,4)(x1,y1,x2,y2)
+        :param bbox_g: groundtruth of bbox(N,4)(x1,y1,x2,y2)
+        :return:
+        """
+        # for details should go to https://arxiv.org/pdf/1902.09630.pdf
+        # ensure predict's bbox form
+        #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
+        #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
+        d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
+    
+        #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
+
+        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+    
+        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        I = w_union * h_union
+        U = area_gt + area_pred - I
+    
+        w_enclose = torch.max(d3_gt, d3_pred) + torch.max(d4_gt, d4_pred)
+        h_enclose = torch.max(d1_gt, d1_pred) + torch.max(d2_gt, d2_pred)
+        area_c = w_enclose * h_enclose
+
+        # calc area of Bc
+        #area_c = (x2C - x1C) * (y2C - y1C)
+        U = area_pred + area_gt - I
+
+        
+        iou = 1.0 * I / U
+        # Giou
+        giou = iou - (area_c - U) / area_c
+
+        # loss_iou = 1 - iou loss_giou = 1 - giou
+        loss_iou = 1.0 - iou
+        loss_giou = 1.0 - giou
+        return I, U, area_c, theta_pred, theta_gt
+
+    def iou(self, bbox_p, bbox_g):
+        """
+        :param bbox_p: predict of bbox(N,4)(x1,y1,x2,y2)
+        :param bbox_g: groundtruth of bbox(N,4)(x1,y1,x2,y2)
+        :return:
+        """
+        # for details should go to https://arxiv.org/pdf/1902.09630.pdf
+        # ensure predict's bbox form
+        #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
+        #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
+        d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
+    
+        #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
+
+        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+    
+        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        I = w_union * h_union
+        U = area_gt + area_pred - I
+    
+        # calc area of Bc
+
+        U = area_pred + area_gt - I
+        #iou = 1.0 * I / U
+
+        return I, U, theta_pred, theta_gt    
+    
+
     def forward(self, y_true_cls, y_pred_cls, y_true_geo, y_pred_geo, training_mask):
         classification_loss = dice_coefficient(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
 
         # d1 -> top, d2->right, d3->bottom, d4->left
-    #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
         d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(y_true_geo, 1, 1)
-    #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
         d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(y_pred_geo, 1, 1)
-        area_gt = (d1_gt + d3_gt) * (d2_gt + d4_gt)
-        area_pred = (d1_pred + d3_pred) * (d2_pred + d4_pred)
-        w_union = torch.min(d2_gt, d2_pred) + torch.min(d4_gt, d4_pred)
-        h_union = torch.min(d1_gt, d1_pred) + torch.min(d3_gt, d3_pred)
+        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
         area_intersect = w_union * h_union
         area_union = area_gt + area_pred - area_intersect
-        L_AABB = -torch.log((area_intersect + 1.0)/(area_union + 1.0))
+        
+        if(self.losstype=='iou'):
+            area_intersect, area_union, theta_pred, theta_gt = self.iou(y_pred_geo, y_true_geo)
+            L_AABB = -torch.log((area_intersect + 1.0)/(area_union + 1.0))
+        else:    
+            area_intersect, area_union, area_c, theta_pred, theta_gt = self.giou(y_pred_geo, y_true_geo)
+            iou = 1.0 * area_intersect / area_union
+            giou = iou - (area_c - area_union) / area_c
+            L_AABB = 1.0 - giou
+            
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
 

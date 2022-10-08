@@ -214,6 +214,7 @@ class CharNet(nn.Module):
         word_instances=[]
         valid_boxes=[]
         ss_word_bboxes=[]
+        
         for idx in range(im.size()[0]):
             char_bboxe, char_score, word_instance, valid_boxe, ss_word_bboxe = self.post_processing(
                 pred_word_fg_np[0, 1], pred_word_tblr_np[0],
@@ -227,12 +228,7 @@ class CharNet(nn.Module):
             word_instances.append(word_instance)
             valid_boxes.append(valid_boxe)
             ss_word_bboxes.append(ss_word_bboxe)
- 
-        char_bboxes=np.array(char_bboxes)
-        char_scores=np.array(char_scores)
-        word_instances=np.array(word_instances)
-        valid_boxes=np.array(valid_boxes)
-        ss_word_bboxes=np.array(ss_word_bboxes)
+                 
             
         return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls 
 

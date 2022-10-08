@@ -23,6 +23,12 @@ from data.data_loader import default_collate
 from torch.optim import lr_scheduler
 from tools.loss import *
 
+
+#Profile
+import cProfile
+import pstats
+from pstats import SortKey
+
 def save_word_recognition(word_instances, image_id, save_root, separator=chr(31)):
     with open('{}/{}.txt'.format(save_root, image_id), 'wt') as fw:
         for word_ins in word_instances:
@@ -103,8 +109,7 @@ def train_model( args, cfg, img_loader ):
     
 #    for batch in img_loader:
 #        for ind in range(len(batch['image'])):
-
-
+    time=0
 #    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
     for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np) in img_loader: 
         char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
@@ -135,8 +140,7 @@ def train_model( args, cfg, img_loader ):
         score_map_mask=score_map_char.cuda()
         geo_map_char=torch.permute(geo_map_char[0].cuda(), (0,3,1,2))
         training_mask_char=training_mask_char.cuda()    
-        
-        
+                
         loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
         loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
         loss3 = dice_loss(score_map_char, pred_char_cls)
@@ -148,6 +152,11 @@ def train_model( args, cfg, img_loader ):
         loss_all.backward()
         optimizer.step()
         scheduler.step()
+        
+        
+        time = time + 1
+        if time == 10:
+            exit()
 
         #for ind in range(len(images)):
         #    char_bboxes, char_scores, word_instances = charnet(images[ind], 1, 1, images[ind].size()[0], images[ind].size()[1])
@@ -285,9 +294,14 @@ if __name__ == '__main__':
     
     
     #Trainsetting(Trainsetting_conf['Experiment']['train']])
-
-#Train code
-    train_model(args, cfg, train_synth_img_loader.data_loader)
+#Train without profile
+    #train_model(args, cfg, train_synth_img_loader.data_loader)
+#Train code with profiling
+    cProfile.run('train_model(args, cfg, train_synth_img_loader.data_loader)', 'restats')
+    p = pstats.Stats('restats')
+    p.sort_stats(SortKey.TIME).print_stats(50)
+    p.sort_stats(SortKey.CUMULATIVE).print_stats(50)
+    #train_model(args, cfg, train_synth_img_loader.data_loader)
 
 #TEST code
-    test_model(args, cfg)
+    #test_model(args, cfg)
