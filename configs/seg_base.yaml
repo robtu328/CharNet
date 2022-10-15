@@ -56,6 +56,7 @@ define:
 #        - class: MakeSegDetectionData
         - class: MakeBorderMap
           charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
 #        - class: NormalizeImage
         - class: FilterKeys
 #          superfluous: [ 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char']

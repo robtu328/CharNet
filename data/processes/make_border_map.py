@@ -8,7 +8,7 @@ from concern.config import State
 from .data_process import DataProcess
 from data.data_utils import generate_rbox
 from charnet.modeling.postprocessing import load_char_rev_dict
-
+import yaml
 
 
 class MakeBorderMap(DataProcess):
@@ -20,13 +20,20 @@ class MakeBorderMap(DataProcess):
     thresh_min = State(default=0.3)
     thresh_max = State(default=0.7)
     charindx = State(default="")
+    yamlfile = State(default="")
     char_rev_dict = []
+    
 
     def __init__(self, cmd={}, *args, **kwargs):
         self.load_all(cmd=cmd, **kwargs)
+        self.debug = False
         warnings.simplefilter("ignore")
         if (self.charindx !=""):
             self.char_rev_dict=load_char_rev_dict(self.charindx)
+        if self.yamlfile !="":
+            self.yamlf=open(self.yamlfile, 'w')
+                   
+            
     def process(self, data, *args, **kwargs):
         r'''
         required keys:
@@ -47,8 +54,11 @@ class MakeBorderMap(DataProcess):
         #    self.draw_border_map(polygons[i], canvas, mask=mask)
         
         score_map, geo_map, training_mask, rects=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons, ignore_tags, lines_text)
-        #print('Rects', rects)
-        #print('Poly:', polygons)
+        if (self.debug == True):
+            for idx, (po, rec) in enumerate(zip(polygons, rects)):
+                print('Poly:', po)
+                print('Rect', rec['rect'])
+            
         data['score_map'] = score_map
         data['geo_map'] = geo_map
         data['training_mask'] = training_mask

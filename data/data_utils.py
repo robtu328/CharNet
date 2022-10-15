@@ -525,7 +525,7 @@ def rectangle_from_parallelogram(poly):
             return np.array([new_p0, p1, new_p2, p3], dtype=np.float32)
 
 
-def sort_rectangle(poly):
+def sort_rectangle(poly, debug=False):
     # sort the four coordinates of the polygon, points in poly should be sorted clockwise
     # First find the lowest point (highest point?)
     p_lowest = np.argmax(poly[:, 1])     
@@ -542,7 +542,7 @@ def sort_rectangle(poly):
         p_lowest_left = (p_lowest + 1) % 4
         angle = np.arctan(-(poly[p_lowest][1] - poly[p_lowest_right][1])/(poly[p_lowest][0] - poly[p_lowest_right][0]))
         # assert angle > 0
-        if angle <= 0:
+        if angle <= 0 and debug == True:
             print("angle <=0, ", angle, poly[p_lowest], poly[p_lowest_right])
         if angle/np.pi * 180 > 45:
             # 这个点为p2
