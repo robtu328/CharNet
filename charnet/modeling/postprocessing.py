@@ -289,7 +289,7 @@ class OrientedTextPostProcessing(nn.Module):
             text, score = decode(char_scores[order])
             return text, score, char_scores[order]
 
-        word_bbox_scores = word_bboxes[:, 8]
+        word_bbox_scores = word_bboxes[:, 8] #get box score
         char_bbox_scores = char_bboxes[:, 8]
         word_bboxes = word_bboxes[:, :8]
         char_bboxes = char_bboxes[:, :8]
@@ -301,6 +301,9 @@ class OrientedTextPostProcessing(nn.Module):
         num_char = char_bboxes.shape[0]
         word_instances = list()
         word_chars = [list() for _ in range(num_word)]
+        if num_word == 0:
+            print("No word box")
+            return word_instances
         for idx in range(num_char):
             char_bbox = char_bboxes[idx]
             char_poly = char_polys[idx]

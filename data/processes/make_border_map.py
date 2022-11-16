@@ -82,8 +82,8 @@ class MakeBorderMap(DataProcess):
         #    self.draw_border_map(polygons_char[i], canvas_char, mask=mask_char)
             
         score_map_char, geo_map_char, training_mask_char, rects_char=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons_char, ignore_tags_char, lines_char, 'C', self.char_rev_dict)
-        data['score_map_char'] = score_map_char
-        data['geo_map_char'] = geo_map_char
+        data['score_map_char'] = score_map_char         # Character detection
+        data['geo_map_char'] = geo_map_char             # Character recognization 
         data['training_mask_char'] = training_mask_char
         #print('Rects_Char', rects_char)
         #print('Poly_Char:', polygons_char)

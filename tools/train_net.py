@@ -87,19 +87,194 @@ def params_gen( net):
                     'weight_decay': 0.0001
                 }]
     return params
-def train_model( args, cfg, img_loader ):
+def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     
 
+    epochs=train_cfg['epochs']
     charnet = CharNet()
     charnet.load_state_dict(torch.load(cfg.WEIGHT))
-    charnet.eval()
+    #charnet.eval()
     charnet.train()
     charnet.cuda()
     params=params_gen(charnet)
+    #params1=params_gen(charnet.backbone) + params_gen(charnet.word_detector)
+    #params2=params_gen(charnet.backbone) + params_gen(charnet.char_detector)
+    #params3=params_gen(charnet.backbone) + params_gen(charnet.char_recognizer)
+    
     
     optimizer = torch.optim.SGD(params, momentum=0.001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
+    #optimizer1 = torch.optim.SGD(params1, momentum=0.001)
+    #scheduler1 = lr_scheduler.StepLR(optimizer1, step_size=10000, gamma=0.94)
+    #optimizer2 = torch.optim.SGD(params2, momentum=0.001)
+    #scheduler2 = lr_scheduler.StepLR(optimizer2, step_size=10000, gamma=0.94)
+    #optimizer3 = torch.optim.SGD(params3, momentum=0.001)
+    #scheduler3 = lr_scheduler.StepLR(optimizer3, step_size=10000, gamma=0.94)
+
     criterion = LossFunc()
+    cmatch= char_matching(cfg)
+    
+    #sequence=iter(img_loader)
+    #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
+    #batch=next(sequence)
+    #default_collate(batch)
+    back_batch_time = 5
+    batch_times = 0
+    loss_all = 0
+    
+#    for batch in img_loader:
+#        for ind in range(len(batch['image'])):
+    time=0
+#    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
+
+    for eidx in range (train_synth_cfg['epochs']):
+        loss1_total = 0
+        loss2_total = 0
+        loss3_total = 0
+        iter_cnt = 0
+        for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars) in img_loader: 
+            char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
+                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls \
+                    = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
+            
+            
+            #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))
+            #pred_char_tblr = torch.permute(pred_char_tblr, (0, 2, 3, 1))
+            char_size = pred_char_tblr.size()
+            #pred_word_orient = torch.permute(pred_word_orient, (0, 2, 3, 1))
+            pred_char_orient = torch.zeros([char_size[0], 1, char_size[2], char_size[3]]).cuda()
+        
+            pred_word_tblra = torch.cat((pred_word_tblr, pred_word_orient), 1)
+            pred_char_tblra = torch.cat((pred_char_tblr, pred_char_orient), 1)
+            
+            pred_word_fg_sq = torch.squeeze(pred_word_fg[:,1::], 1)
+            pred_char_fg_sq = torch.squeeze(pred_char_fg[:,1::], 1)
+            
+            score_map_char_mask=torch.where(score_map_char> 0, 1, 0)  
+            score_map_char_adjust=torch.where(score_map_char> 0, -1, 0) 
+            score_map_char = score_map_char + score_map_char_adjust
+            
+            score_map=score_map.cuda()
+            geo_map=torch.permute(geo_map.cuda(), (0,3,1,2))
+            training_mask=training_mask.cuda()
+            score_map_char_mask=score_map_char_mask.cuda()
+            score_map_mask=score_map_char.cuda()
+            geo_map_char=torch.permute(geo_map_char[0].cuda(), (0,3,1,2))
+            training_mask_char=training_mask_char.cuda()    
+                    
+            loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
+            loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
+            loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
+            loss4 = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
+ 
+            loss1_total = loss1_total + loss1
+            loss2_total = loss2_total + loss2
+            loss3_total = loss3_total + loss3
+            
+            weighted1=0.3
+            weighted2=0.3
+            weighted3=0.4
+            #loss_all = loss1 + loss2 + loss3
+            loss_all = loss1*weighted1 + loss2*weighted2 + loss3*weighted3
+            print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3)
+            #scheduler.step()
+
+            loss_all=loss_all / back_batch_time
+            loss_all.backward()
+            
+            
+            #loss1=loss1 / back_batch_time
+            #loss2=loss2 / back_batch_time
+            #loss3=loss3 / back_batch_time
+            
+            #loss1.backward()
+            #loss2.backward()
+            #loss3.backward()
+            batch_times = batch_times + 1
+        
+            if batch_times >= back_batch_time:
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+                
+ #               optimizer1.step()
+ #               scheduler1.step()
+ #               optimizer1.zero_grad()
+ #               optimizer2.step()
+ #               scheduler2.step()
+ #               optimizer2.zero_grad()            
+ #               optimizer3.step()
+ #               scheduler3.step()
+ #               optimizer3.zero_grad()            
+                batch_times = 0
+        
+
+        
+            iter_cnt = iter_cnt + 1
+            time = time + 1
+            if debug==True and time == 10:
+                exit()
+
+
+
+
+            state = {
+                    'epochs'      : epochs,
+                    'state_dict' : charnet.state_dict(),
+                    'optimizer'  : optimizer.state_dict(),
+ #                   'optimizer1'  : optimizer1.state_dict(),
+ #                   'optimizer2'  : optimizer2.state_dict(),
+ #                   'optimizer3'  : optimizer3.state_dict()
+                    }
+            torch.save(state, './model_save.pth')
+            #save_checkpoint(state, epoch)
+
+        loss1_average = loss1_total / iter_cnt
+        loss2_average = loss2_total / iter_cnt
+        loss3_average = loss3_total / iter_cnt
+        loss_average = loss1_average*weighted1 + loss2_average*weighted2 + loss3_average*weighted3
+        print ("Loss average all: ", loss_average, "loss1_average: ", loss1_average, "loss2_average: ", loss2_average, "loss3_average: ", loss3_average)
+        #for ind in range(len(images)):
+        #    char_bboxes, char_scores, word_instances = charnet(images[ind], 1, 1, images[ind].size()[0], images[ind].size()[1])
+#            char_bboxes, char_scores, word_instances = charnet(batch['image'][ind].numpy().astype('uint8'), 1, 1, batch['image'][ind].size()[0], batch['image'][ind].size()[1])
+        #    print(char_bboxes, word_instances)
+        
+        
+        #Check  Image size. and transofrmation reuslt
+#        print("Processing {}...".format(im_name))
+#        im_file = os.path.join(args.image_dir, im_name)
+#        im_original = cv2.imread(im_file)
+#        im, scale_w, scale_h, original_w, original_h = resize(im_original, size=cfg.INPUT_SIZE)
+#        with torch.no_grad():b
+#            char_bboxes, char_scores, word_instances = charnet(im, scale_w, scale_h, original_w, original_h)
+#            save_word_recognition(
+#                word_instances, os.path.splitext(im_name)[0],
+#                args.results_dir, cfg.RESULTS_SEPARATOR
+#            )
+
+    
+    
+    
+    params=params_gen(charnet)
+    
+    return params
+
+
+
+def test_model( charnet, args, cfg, img_loader, debug=False ):
+    
+
+    #charnet = CharNet()
+    #charnet.load_state_dict(torch.load(cfg.WEIGHT))
+    
+    charnet.eval()
+    charnet.cuda()
+    params=params_gen(charnet)
+    
+    #optimizer = torch.optim.SGD(params, momentum=0.001)
+    #scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
+    criterion = LossFunc()
+    cmatch= char_matching(cfg)
     
     #sequence=iter(img_loader)
     #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
@@ -110,6 +285,7 @@ def train_model( args, cfg, img_loader ):
 #    for batch in img_loader:
 #        for ind in range(len(batch['image'])):
     time=0
+    back_batch_time = 4
 #    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
     for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np) in img_loader: 
         char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
@@ -145,17 +321,21 @@ def train_model( args, cfg, img_loader ):
         loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
         loss3 = dice_loss(score_map_char, pred_char_cls)
  
-        loss_all = loss1 + loss2 + loss3
+        weighted1=0.3
+        weighted2=0.3
+        weighted3=0.4
+        #loss_all = loss1 + loss2 + loss3
+        loss_all = loss1*weighted1 + loss2*weighted2 + loss3*weighted3
         print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3)
         #scheduler.step()
-        optimizer.zero_grad()
-        loss_all.backward()
-        optimizer.step()
-        scheduler.step()
+        #optimizer.zero_grad()
+        #loss_all.backward()
+        #optimizer.step()
+        #scheduler.step()
         
         
         time = time + 1
-        if time == 10:
+        if debug==True and time == 10:
             exit()
 
         #for ind in range(len(images)):
@@ -181,10 +361,14 @@ def train_model( args, cfg, img_loader ):
     
     
     
-    return optimizer, params
+    return  params
 
 
-def test_model(args, cfg):
+
+
+
+
+def test_model2(args, cfg):
     
     charnet = CharNet()
     charnet.load_state_dict(torch.load(cfg.WEIGHT))
@@ -236,23 +420,32 @@ if __name__ == '__main__':
     
     
     
-    myprocess=train_synth_img_loader.data_loader.dataset.processes
+    myprocess=train_synth_img_loader.data_loader.dataset.processes;
+    #myprocess=train_synth_img_loader.data_loader.dataset[22]
     data = {}
-    image_path=train_synth_img_loader.data_loader.dataset.image_paths[1]
-    target = train_synth_img_loader.data_loader.dataset.targets[1]
-    target_char = train_synth_img_loader.data_loader.dataset.targets_char[1]
-    img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
+    image_path=train_synth_img_loader.data_loader.dataset.image_paths[973]
+    #target = train_synth_img_loader.data_loader.dataset.targets[1]
+    #target_char = train_synth_img_loader.data_loader.dataset.targets_char[1]
+    data=train_synth_img_loader.data_loader.dataset.getData(973)
+    
+    imgr = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
+    #imgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
     data['filename']=image_path
     data['data_id']=image_path
-    data['image']=img
-    data['lines']=target
-    data['chars']=target_char
+    data['image']=imgr
+    
+    #data5=train_synth_img_loader.data_loader.dataset[1]
+    #data['lines']=target
+    #data['chars']=target_char
+    #img_pathd="./test.jpg"
+    #imgd=cv2.imread(img_pathd)
+    
     data1=myprocess[0](data)
     data2=myprocess[1](data1)
     data3=myprocess[2](data2)
     data4=myprocess[3](data3)
     data5=myprocess[4](data4)
-    #data6=myprocess[5](data5)
+    data6=myprocess[5](data5)
     
     #dlen = len(train_synth_img_loader.data_loader)
     #print ('Len = ', dlen)
@@ -269,11 +462,11 @@ if __name__ == '__main__':
     #data7 = myconv(data6['image'])
     #data7=myprocess[6](data6)
     
-    #0 <data.processes.augment_data.AugmentDetectionData >, 
-    #1 <data.processes.random_crop_data.RandomCropData >, 
-    #2 <data.processes.make_icdar_data.MakeICDARData >, 
+    #0 <data.processes.augment_data.AugmentDetectionData >,    -> affine transforer, Flip, resize
+    #1 <data.processes.random_crop_data.RandomCropData >,      -> Random Crop Data
+    #2 <data.processes.make_icdar_data.MakeICDARData >,        -> Bonding box transfer to t,b,l,r, angle
     #3 <data.processes.make_seg_detection_data.MakeSegDetectionData >, remove 
-    #4->3 <data.processes.make_border_map.MakeBorderMap >, 
+    #4->3 <data.processes.make_border_map.MakeBorderMap >,     -> Shrink Bonding box and bonding box generation 
     #5->4 <data.processes.normalize_image.NormalizeImage >, 
     #6->5 <data.processes.filter_keys.FilterKeys >
     
@@ -292,16 +485,17 @@ if __name__ == '__main__':
     #cv2.imshow('TEST', dst.astype('uint8'))
     #cv2.waitKey(0)
     
-    
+    charnet = CharNet()
+    charnet.load_state_dict(torch.load(cfg.WEIGHT))
     #Trainsetting(Trainsetting_conf['Experiment']['train']])
 #Train without profile
-    #train_model(args, cfg, train_synth_img_loader.data_loader)
+    train_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg)
 #Train code with profiling
-    cProfile.run('train_model(args, cfg, train_synth_img_loader.data_loader)', 'restats')
-    p = pstats.Stats('restats')
-    p.sort_stats(SortKey.TIME).print_stats(50)
-    p.sort_stats(SortKey.CUMULATIVE).print_stats(50)
-    #train_model(args, cfg, train_synth_img_loader.data_loader)
+    #cProfile.run('train_model(args, cfg, train_synth_img_loader.data_loader)', 'restats')
+    #p = pstats.Stats('restats')
+    #p.sort_stats(SortKey.TIME).print_stats(50)
+    #p.sort_stats(SortKey.CUMULATIVE).print_stats(50)
+    
 
 #TEST code
     #test_model(args, cfg)

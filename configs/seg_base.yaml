@@ -57,12 +57,13 @@ define:
         - class: MakeBorderMap
           charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
           yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
-#        - class: NormalizeImage
+        - class: NormalizeImage
+          norm_type: 'lib'
         - class: FilterKeys
 #          superfluous: [ 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char']
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
-          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'ignore_tags_char', 'polygons_char']
-
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+    mode: "train"
 
   - name: validate_data
     class: ImageDataset
@@ -95,9 +96,9 @@ define:
         data_loader: 
             class: DataLoader
             dataset: ^train_data_synth
-            batch_size: 4
-            num_workers: 4
-        epochs: 4
+            batch_size: 2
+            num_workers: 2
+        epochs: 12
         
         
         

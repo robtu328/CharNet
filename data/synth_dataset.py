@@ -35,6 +35,7 @@ class SynthDataset(data.Dataset, Configurable):
     data_dir = State()
     mat_list = State()
     processes = State(default=[])
+    mode = State(default="train")
 
     def __init__(self, data_dir=None, mat_list=None, cmd={}, **kwargs):
         self.load_all(**kwargs)
@@ -47,11 +48,23 @@ class SynthDataset(data.Dataset, Configurable):
             self.is_training = False
             
         self.debug = cmd.get('debug', False)
+        self.debug = False
+        
         self.image_paths = []
         self.gt_maps = []
         self.gt_maps_char = []
         
         self.get_all_samples()
+        
+        #data_length = self.num_samples
+        self.train_s=0
+        self.train_e=int(self.num_samples*8/10)
+        
+        self.valid_s=self.train_e
+        self.valid_e=self.train_e+int(self.num_samples/10)
+        
+        self.test_s =self.valid_e
+        self.test_e =self.num_samples
 
     def get_all_samples(self):
         for i in range(len(self.data_dir)):
@@ -112,8 +125,11 @@ class SynthDataset(data.Dataset, Configurable):
             self.gt_maps_char += gt_map_char
             #print(image_path, " ", gt_path)
         self.num_samples = len(self.image_paths)
-        self.targets = self.load_ann()
-        self.targets_char = self.load_ann_char()
+        
+        
+        
+#        self.targets = self.load_ann()
+#        self.targets_char = self.load_ann_char()
         
         if self.is_training:
             assert len(self.image_paths) == len(self.targets)
@@ -142,23 +158,83 @@ class SynthDataset(data.Dataset, Configurable):
                 raise NameError('Charter box size do not match txt lenth', len(gt['txt']), 'to ', gt['poly'].shape[0])
             
             if '##' in gt['txt']:
-                raise NameError('# is found string = ', gt['txt'])
+                print('# is found string = ', gt['txt'])
+                #raise NameError('# is found string = ', gt['txt'])
                 
             for line, text in zip(gt['poly'], gt['txt']):
                 item = {}
-                item['poly'] = line.round().tolist()
-                item['text'] = text
-                lines.append(item)
-            res.append(lines)
+                if '##' not in gt['txt']:
+                  item['poly'] = line.round().tolist()
+                  item['text'] = text
+                  lines.append(item)
+            if(line != []):
+               res.append(lines)
         return res
 
-
-    def __getitem__(self, index, retry=0):
-        if index >= self.num_samples:
-            index = index % self.num_samples
+    def getData (self, index):
         data = {}
-        image_path = self.image_paths[index]
+        #Line bonding box
+        gt=self.gt_maps[index]
+        lines = []
+        for line, text in zip(gt['poly'], gt['txt']):
+            item = {}
+            item['poly'] = line.round().tolist()
+            item['text'] = text
+            lines.append(item)
+        
+        data['lines'] = lines
+        
+        
+        #Char bonding box
+        gt=self.gt_maps_char[index]
+        lines = []
+            
+        for line, text in zip(gt['poly'], gt['txt']):
+
+            lines = []
+            if (len(gt['txt']) != gt['poly'].shape[0]):
+                raise NameError('Charter box size do not match txt lenth', len(gt['txt']), 'to ', gt['poly'].shape[0])
+            
+            if '##' in gt['txt']:
+                print('# is found string = ', gt['txt'])
+                #raise NameError('# is found string = ', gt['txt'])
+                
+            for line, text in zip(gt['poly'], gt['txt']):
+                item = {}
+                if '##' not in gt['txt']:
+                  item['poly'] = line.round().tolist()
+                  item['text'] = text
+                  lines.append(item)
+                  
+        data['chars'] = lines
+        
+        return data
+
+
+
+
+
+        
+    def __getitem__(self, index, retry=0):
+        
+        
+        if index >= self.__len__():
+            index = index % self.__len__()
+            
+        if (self.mode == 'train'):
+            index_update = index
+        elif (self.mode == 'valid'):
+            index_update = self.valid_s + index
+        else:
+            index_update = self.test_s + index
+         
+          
+            
+        data = {}
+        image_path = self.image_paths[index_update]
         img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
+        if self.debug== True:
+            print("index = ",index_update," Image file name: ", image_path,"\n")
         if self.is_training:
             data['filename'] = image_path
             data['data_id'] = image_path
@@ -166,10 +242,51 @@ class SynthDataset(data.Dataset, Configurable):
             data['filename'] = image_path.split('/')[-1]
             data['data_id'] = image_path.split('/')[-1]
         data['image'] = img
-        target = self.targets[index]
-        target_char = self.targets_char[index]
-        data['lines'] = target
-        data['chars'] = target_char
+        
+        
+        
+        #target = self.targets[index]
+        #target_char = self.targets_char[index]
+    
+        #Line bonding box
+        gt=self.gt_maps[index_update]
+        lines = []
+        for line, text in zip(gt['poly'], gt['txt']):
+            item = {}
+            item['poly'] = line.round().tolist()
+            item['text'] = text
+            lines.append(item)
+            if self.debug==True:
+                print("Text: ", text)
+        
+        data['lines'] = lines
+        
+        
+        #Char bonding box
+        gt=self.gt_maps_char[index_update]
+        lines = []
+            
+        for line, text in zip(gt['poly'], gt['txt']):
+
+            lines = []
+            if (len(gt['txt']) != gt['poly'].shape[0]):
+                raise NameError('Charter box size do not match txt lenth', len(gt['txt']), 'to ', gt['poly'].shape[0])
+            
+            if '##' in gt['txt']:
+                print('# is found string = ', gt['txt'])
+                #raise NameError('# is found string = ', gt['txt'])
+                
+            for line, text in zip(gt['poly'], gt['txt']):
+                item = {}
+                if '##' not in gt['txt']:
+                  item['poly'] = line.round().tolist()
+                  item['text'] = text
+                  lines.append(item)
+                  
+        data['chars'] = lines
+        
+        
+        
         #print ("image size=", img.shape)
         #print("Start index process ", index)
         if self.processes is not None:
@@ -190,5 +307,13 @@ class SynthDataset(data.Dataset, Configurable):
         return data
 
     def __len__(self):
-        return len(self.image_paths)
+        
+        if (self.mode == 'train'):
+            return self.train_e - self.train_s
+        elif (self.mode == 'valid'):
+            return self.valid_e - self.valid_s
+        else:
+            return self.test_e - self.test_s
+        
+        #return len(self.image_paths)
         #return len(self.image_paths)

@@ -7,6 +7,32 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import numpy as np
+
+import pyclipper
+from shapely.geometry import Polygon
+from charnet.modeling.postprocessing import load_char_dict
+
+def generalized_dice_loss_w(y_true, y_pred): 
+    # Compute weights: "the contribution of each label is corrected by the inverse of its volume"
+    Ncl = y_pred.shape[-1]
+    w = torch.zeros((Ncl,))
+    for l in range(0,Ncl): w[l] = torch.sum( torch.asarray(y_true[:,:,:,:,l]==1,torch.int8) )
+    w = 1/(w**2+0.00001)
+
+    # Compute gen dice coef:
+    numerator = y_true*y_pred
+    numerator = w*torch.sum(numerator,(0,1,2,3))
+    numerator = torch.sum(numerator)
+    
+    denominator = y_true+y_pred
+    denominator = w*torch.sum(denominator,(0,1,2,3))
+    denominator = torch.sum(denominator)
+    
+    gen_dice_coef = numerator/denominator
+    
+    return 1-2*gen_dice_coef
+
 
 
 
@@ -22,6 +48,7 @@ def dice_loss(true, logits, eps=1e-7):
         eps: added to the denominator for numerical stability.
     Returns:
         dice_loss: the Sørensen–Dice loss.
+        from: https://github.com/kevinzakka/pytorch-goodies/blob/master/losses.py
     """
     num_classes = logits.shape[1]
     if num_classes == 1:
@@ -34,11 +61,13 @@ def dice_loss(true, logits, eps=1e-7):
         neg_prob = 1 - pos_prob
         probas = torch.cat([pos_prob, neg_prob], dim=1)
     else:
-        true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
-        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        probas = F.softmax(logits, dim=1)
-    true_1_hot = true_1_hot.type(logits.type())
-    dims = (0,) + tuple(range(2, true.ndimension()))
+        true_1_hot = torch.eye(num_classes)[true.squeeze(1)] #add class dimension by using eye
+        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()  #move class to dimension 1
+        probas = logits
+        #probas = F.softmax(logits, dim=1) # suppress valuse below 1
+        #torch.where(probas>0.2, probas, 0.0)
+    true_1_hot = true_1_hot.type(logits.type()) #Change type to floatTensor
+    dims = (0,) + tuple(range(2, true.ndimension()+1)) # decide sum area
     intersection = torch.sum(probas * true_1_hot, dims)
     cardinality = torch.sum(probas + true_1_hot, dims)
     dice_loss = (2. * intersection / (cardinality + eps)).mean()
@@ -136,6 +165,121 @@ def Giou_np(bbox_p, bbox_g):
     return giou, loss_iou, loss_giou
 
 
+
+
+class char_matching(nn.Module):
+    def __init__(self, cfg):
+        super(char_matching, self).__init__()
+        self.char_dict_reverse = {}
+        self.char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
+        self.num_class = len(self.char_dict)
+        for k, v in self.char_dict.items():
+            self.char_dict_reverse[v] = k 
+        self.loss = nn.CrossEntropyLoss()
+        self.debug = False
+        
+    def iou(self, bbox_p, bbox_g):
+        """
+        :param bbox_p: predict of bbox(N,4)(x1,y1,x2,y2)
+        :param bbox_g: groundtruth of bbox(N,4)(x1,y1,x2,y2)
+        :return:
+        """
+        # for details should go to https://arxiv.org/pdf/1902.09630.pdf
+        # ensure predict's bbox form
+        #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
+        #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
+        d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
+    
+        #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
+
+        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+    
+        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        I = w_union * h_union
+        U = area_gt + area_pred - I
+    
+        # calc area of Bc
+
+        U = area_pred + area_gt - I
+        #iou = 1.0 * I / U
+
+        return I, U, theta_pred, theta_gt    
+        
+    def forward(self, char_bboxes, char_scores, polygon_chars, line_chars):
+    
+        
+        match_all=[]
+        
+        for pic_idx in range(len(polygon_chars)):    
+            maxchar_score = np.argmax(char_scores[pic_idx], 1)
+            
+            match_idx=np.empty(len(polygon_chars[pic_idx]))
+            match_idx[:]=None
+            for gidx in range(len(polygon_chars[pic_idx])):
+                inter_area=np.zeros(len(char_bboxes[pic_idx]))
+                
+                
+                ppoly=pyclipper.scale_to_clipper(polygon_chars[pic_idx][gidx].reshape((4, 2)))
+                
+                for pidx in range(len(char_bboxes[pic_idx])):
+                    gpoly=pyclipper.scale_to_clipper(char_bboxes[pic_idx][pidx][:8].reshape((4, 2)))
+                    
+                    pc = pyclipper.Pyclipper()
+                    pc.AddPath(ppoly, pyclipper.PT_CLIP, True)
+                    pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
+                    solution = pc.Execute(pyclipper.CT_INTERSECTION)
+                    
+                    if len(solution) == 0:
+                        inter = 0
+                    else:
+                        inter = pyclipper.scale_from_clipper(
+                            pyclipper.scale_from_clipper(pyclipper.Area(solution[0])))
+                        
+                        inter_area[pidx]=inter
+                     
+                gmax_idx= np.argmax(inter_area) #Find the most match golden box's index, inter_area len=golden 
+
+                if(inter_area[gmax_idx] != 0):
+                    match_idx[gidx] = gmax_idx
+                    
+            if(self.debug):print (match_idx)
+            pred_line=[]
+            pred_number=[]
+            for gidx in range(len(polygon_chars[pic_idx])):
+                pidx_char = None
+                if(not np.isnan(match_idx[gidx])):
+                    if(self.debug):
+                        print('gidx = ', gidx, "match_idx[gidx] = ", match_idx[gidx])
+                        print("Maxcharscore ", maxchar_score[match_idx[gidx].astype('uint')] )
+                    pred_line_chars= self.char_dict[maxchar_score[match_idx[gidx].astype('uint')].astype('uint')]
+                    golden_char=line_chars[pic_idx][gidx]
+                    pred_line.append(pred_line_chars)
+                    pred_number.append(maxchar_score[match_idx[gidx].astype('int')].astype('int'))
+                else:
+                    pred_line.append(" ")
+                    pred_number.append(-1)
+            
+            golden_class=[]
+            for k in line_chars[pic_idx]:
+                golden_class.append(self.char_dict_reverse[k.upper()])     
+            golden_class_onehot=torch.eye(self.num_class)[golden_class]
+            
+            
+            pred_class_score=char_scores[pic_idx][match_idx.astype('uint8')]
+            
+            
+            
+            indices=np.where (np.array(pred_number) == -1)[0]
+            pred_class_onehot = torch.eye(self.num_class)[pred_number]
+            pred_class_onehot[indices] = 0
+            match_all.append(match_idx)
+            
+                
+    
+        print(match_all)
 
 class LossFunc(nn.Module):
     def __init__(self, losstype='iou'):

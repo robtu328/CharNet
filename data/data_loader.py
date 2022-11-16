@@ -47,15 +47,16 @@ def collate_fn(batch):
     training_mask = []
     score_map_char = []
     geo_map_char = []
-    training_mask_char = []    
+    training_mask_char = [] 
+    polygon_chars = []
     
    
     for index in range(bs):
         #print ('index = ', index)
         if batch[index]['image'] is not None:
-            a = torch.from_numpy(batch[index]['image'])
-            a = a.permute(2, 1, 0)
-            #a = img[i]
+            #a = torch.from_numpy(batch[index]['image'])
+            #a = a.permute(2, 1, 0)
+            a = batch[index]['image']
             images.append(a)
             images_np.append(batch[index]['image'])
            
@@ -65,7 +66,7 @@ def collate_fn(batch):
             
             #c = torch.FloatTensor(batch[index]['polygons_char'])
             #c = c.permute(2, 0, 1)
-#            polygon_chars.append(batch[index]['polygons_char'])
+            polygon_chars.append(batch[index]['polygons_char'])
             
             #d = torch.from_numpy(batch[i]['lines_text'])
             lines_texts.append(batch[index]['lines_text'])
@@ -140,7 +141,7 @@ def collate_fn(batch):
 
     #return images, score_maps, geo_maps, training_masks
     #return images, polygons, polygon_chars, lines_texts, lines_chars, gts, masks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars 
-    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np 
+    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np,  polygon_chars, lines_chars
 
 def default_collate(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
