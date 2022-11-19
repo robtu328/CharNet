@@ -96,8 +96,8 @@ define:
         data_loader: 
             class: DataLoader
             dataset: ^train_data_synth
-            batch_size: 2
-            num_workers: 2
+            batch_size: 1
+            num_workers: 1
         epochs: 12
         
         
