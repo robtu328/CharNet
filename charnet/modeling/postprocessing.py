@@ -5,13 +5,14 @@
 #
 # This source code is licensed under the LICENSE file in the root directory of this source tree.
 
+import torch
 from torch import nn
 import numpy as np
 import cv2
 import editdistance
 from .utils import rotate_rect
 from .rotated_nms import nms, nms_with_char_cls, \
-    softnms, nms_poly
+    softnms, nms_poly, nms_with_char_cls_torch
 from shapely.geometry import Polygon
 import pyclipper
 
@@ -19,7 +20,7 @@ from sklearn.cluster import DBSCAN
 from sklearn import metrics
 
 import matplotlib.pyplot as plt
-
+import gc
 
 
 def load_lexicon(path):
@@ -91,13 +92,13 @@ class OrientedTextPostProcessing(nn.Module):
             pred_word_fg, pred_word_tblr, pred_word_orient,
             im_scale_w, im_scale_h, original_im_w, original_im_h
         )
-        char_bboxes, char_scores = self.parse_char(
+        char_bboxes, char_scores = self.parse_char_torch(
             pred_word_fg, pred_char_fg, pred_char_tblr, pred_char_cls,
             im_scale_w, im_scale_h, original_im_w, original_im_h
         )
         word_instances = self.parse_words(
             ss_word_bboxes, char_bboxes,
-            char_scores, self.char_dict
+            char_scores.clone().detach().cpu().numpy(), self.char_dict
         )
 
         word_instances = self.filter_word_instances(word_instances, self.lexicon)
@@ -195,6 +196,64 @@ class OrientedTextPostProcessing(nn.Module):
         oriented_char_bboxes[:, 1:8:2] = np.maximum(0, np.minimum(H-1, oriented_char_bboxes[:, 1:8:2]))
         char_scores = char_scores[keep]
         return oriented_char_bboxes, char_scores
+
+
+    def parse_char_torch(
+            self, pred_word_fg, pred_char_fg,
+            pred_char_tblr, pred_char_cls,
+            scale_w, scale_h, W, H
+    ):
+        char_stride = self.char_stride
+        if pred_word_fg.shape == pred_char_fg.shape:
+            char_keep_rows, char_keep_cols = np.where(
+                (pred_word_fg > self.word_min_score) & (pred_char_fg > self.char_min_score))
+        else:
+            th, tw = pred_char_fg.shape
+            word_fg_mask = cv2.resize((pred_word_fg > self.word_min_score).astype(np.uint8),
+                                      (tw, th), interpolation=cv2.INTER_NEAREST).astype(np.bool)
+            char_keep_rows, char_keep_cols = np.where(
+                word_fg_mask & (pred_char_fg > self.char_min_score))
+
+        oriented_char_bboxes = np.zeros((char_keep_rows.shape[0], 9), dtype=np.float32)
+        char_scores = torch.zeros(char_keep_rows.shape[0], self.num_char_class)
+        
+        for idx in range(oriented_char_bboxes.shape[0]):
+            y, x = char_keep_rows[idx], char_keep_cols[idx]
+            t, b, l, r = pred_char_tblr[:, y, x]
+            o = 0.0  # pred_char_orient[y, x]
+            score = pred_char_fg[y, x]
+            four_points = rotate_rect(
+                scale_w * char_stride * (x-l), scale_h * char_stride * (y-t),
+                scale_w * char_stride * (x+r), scale_h * char_stride * (y+b),
+                o, scale_w * char_stride * x, scale_h * char_stride * y)
+            oriented_char_bboxes[idx, :8] = np.array(four_points, dtype=np.float32).flat
+            oriented_char_bboxes[idx, 8] = score
+            char_scores[idx, :] = pred_char_cls[:, y, x]
+            
+        keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
+            oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
+        )
+        new_oriented_char_bboxes = new_oriented_char_bboxes[keep]
+        new_oriented_char_bboxes[:, :8] = new_oriented_char_bboxes[:, :8].round()
+        new_oriented_char_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, new_oriented_char_bboxes[:, 0:8:2]))
+        new_oriented_char_bboxes[:, 1:8:2] = np.maximum(0, np.minimum(H-1, new_oriented_char_bboxes[:, 1:8:2]))
+        new_char_scores1 = new_char_scores[keep].clone()
+
+        new_oriented_char_bboxes1 = new_oriented_char_bboxes.copy()        
+        new_char_scores=None
+        new_oriented_char_bboxes=None
+
+        char_scores = None
+        oriented_char_bboxes=None
+        keep=None
+        
+#        del pred_char_cls
+#        gc.collect()
+#        torch.cuda.empty_cache()
+        
+        return new_oriented_char_bboxes1, new_char_scores1
+
+
 
     def filter_word_instances(self, word_instances, lexicon):
         def match_lexicon(text, lexicon):

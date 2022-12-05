@@ -217,12 +217,18 @@ class CharNet(nn.Module):
         
         for idx in range(im.size()[0]):
             char_bboxe, char_score, word_instance, valid_boxe, ss_word_bboxe = self.post_processing(
-                pred_word_fg_np[0, 1], pred_word_tblr_np[0],
-                pred_word_orient_np[0, 0], pred_char_fg_np[0, 1],
-                pred_char_tblr_np[0], pred_char_cls_np[0],
+                pred_word_fg_np[idx, 1], pred_word_tblr_np[idx],
+                pred_word_orient_np[idx, 0], pred_char_fg_np[idx, 1],
+                pred_char_tblr_np[idx], pred_char_cls[idx],
                 im_scale_w, im_scale_h,
                 original_im_w, original_im_h
             )
+            
+            #char_score_torch = self.post_processing.parse_char_torch(
+            #    pred_word_fg_np[idx, 1], pred_char_fg_np[idx, 1], pred_char_tblr_np[idx], pred_char_cls[idx],
+            #    im_scale_w, im_scale_h, original_im_w, original_im_h
+            #)
+            
             char_bboxes.append(char_bboxe)
             char_scores.append(char_score)
             word_instances.append(word_instance)

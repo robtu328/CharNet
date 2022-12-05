@@ -1,4 +1,6 @@
 import torch
+import sys
+import gc
 from torch.autograd import Variable
 
 
@@ -12,6 +14,7 @@ import numpy as np
 import pyclipper
 from shapely.geometry import Polygon
 from charnet.modeling.postprocessing import load_char_dict
+from pympler import muppy, summary
 
 def generalized_dice_loss_w(y_true, y_pred): 
     # Compute weights: "the contribution of each label is corrected by the inverse of its volume"
@@ -212,9 +215,19 @@ class char_matching(nn.Module):
     
         
         match_all=[]
+        loss=torch.tensor(0)
+        rec_correct=0
+        total_number=0
+        
+        if (self.debug):
+            print("loss beginning")
+            all_objects = muppy.get_objects()
+            sum1 = summary.summarize(all_objects)
+            summary.print_(sum1)
         
         for pic_idx in range(len(polygon_chars)):    
-            maxchar_score = np.argmax(char_scores[pic_idx], 1)
+            maxchar_score = torch.argmax(char_scores[pic_idx], 1).cpu().numpy()
+            if(len(char_scores[pic_idx])==0):print('empty char score');continue
             
             match_idx=np.empty(len(polygon_chars[pic_idx]))
             match_idx[:]=None
@@ -223,14 +236,31 @@ class char_matching(nn.Module):
                 
                 
                 ppoly=pyclipper.scale_to_clipper(polygon_chars[pic_idx][gidx].reshape((4, 2)))
-                
+                if ((polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][1]).all() or
+                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][2]).all() or
+                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][2] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][2]).all()):
+                    continue
+            
+                    
+                if (self.debug==True): print('PPoly', polygon_chars[pic_idx][gidx])
                 for pidx in range(len(char_bboxes[pic_idx])):
                     gpoly=pyclipper.scale_to_clipper(char_bboxes[pic_idx][pidx][:8].reshape((4, 2)))
+                    gpoly1=char_bboxes[pic_idx][pidx][:8].reshape(4,2)
+                    if (self.debug==True): print('GPoly', gpoly1)
+                    if((gpoly1[0]==gpoly1[1]).all() or (gpoly1[0]==gpoly1[2]).all() or
+                       (gpoly1[0]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[3]).all() or
+                       (gpoly1[2]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[2]).all()):
+                        inter=0
                     
-                    pc = pyclipper.Pyclipper()
-                    pc.AddPath(ppoly, pyclipper.PT_CLIP, True)
-                    pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
-                    solution = pc.Execute(pyclipper.CT_INTERSECTION)
+                    else:
+                        pc = pyclipper.Pyclipper()
+                        #print('PPoly', ppoly)
+                        pc.AddPath(ppoly, pyclipper.PT_CLIP, True)
+                        pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
+                        solution = pc.Execute(pyclipper.CT_INTERSECTION)
                     
                     if len(solution) == 0:
                         inter = 0
@@ -244,6 +274,7 @@ class char_matching(nn.Module):
 
                 if(inter_area[gmax_idx] != 0):
                     match_idx[gidx] = gmax_idx
+            
                     
             if(self.debug):print (match_idx)
             pred_line=[]
@@ -265,22 +296,52 @@ class char_matching(nn.Module):
             golden_class=[]
             for k in line_chars[pic_idx]:
                 golden_class.append(self.char_dict_reverse[k.upper()])     
-            golden_class_onehot=torch.eye(self.num_class)[golden_class]
+            golden_class_onehot=torch.eye(self.num_class)[golden_class].cuda()
             
-            
-            pred_class_score=char_scores[pic_idx][match_idx.astype('uint8')]
-            
-            
+            pred_class_score=char_scores[pic_idx][match_idx.astype('uint8').tolist()]
             
             indices=np.where (np.array(pred_number) == -1)[0]
-            pred_class_onehot = torch.eye(self.num_class)[pred_number]
-            pred_class_onehot[indices] = 0
-            match_all.append(match_idx)
-            
-                
-    
-        print(match_all)
+            pred_class_score[indices] = 0
+            loss=loss + self.loss(pred_class_score.cuda(), golden_class_onehot)
+            for test, gold in zip(golden_class, pred_number):
+                total_number = total_number +1
+                if (test == gold):
+                   rec_correct = rec_correct + 1
+                   
+                   
+            #pred_class_onehot = torch.eye(self.num_class)[pred_number]
+            #pred_class_onehot[indices] = 0
+            #match_all.append(match_idx)
+            match_idx=None
+            pred_line=None 
+            pred_number=None 
+            del maxchar_score, inter_area, gmax_idx, pc, golden_class
 
+        
+#        if 'golden_class_onehot' in locals():
+#            del golden_class_onehot
+#            del pred_class_score
+#        gc.collect()
+#        torch.cuda.empty_cache()
+        
+        loss=loss/len(polygon_chars)
+        loss=loss/self.num_class
+        if(self.debug):
+            print("polygon_chars ref count", sys.getrefcount(polygon_chars))
+            print("loss ref count", sys.getrefcount(loss))
+            print("loss end")
+        
+            all_objects = muppy.get_objects()
+            sum1 = summary.summarize(all_objects)
+            summary.print_(sum1)
+        
+#        if(self.debug):print(match_all)
+#        del match_all
+           
+       
+        return loss, total_number, rec_correct
+#        return 0.1, 2, 1
+    
 class LossFunc(nn.Module):
     def __init__(self, losstype='iou'):
         super(LossFunc, self).__init__()
