@@ -36,6 +36,7 @@ class SynthDataset(data.Dataset, Configurable):
     mat_list = State()
     processes = State(default=[])
     mode = State(default="train")
+    snumber= State(default=None)
 
     def __init__(self, data_dir=None, mat_list=None, cmd={}, **kwargs):
         self.load_all(**kwargs)
@@ -54,7 +55,7 @@ class SynthDataset(data.Dataset, Configurable):
         self.gt_maps = []
         self.gt_maps_char = []
         
-        self.get_all_samples()
+        self.get_all_samples(self.snumber)
         
         #data_length = self.num_samples
         self.train_s=0
@@ -66,7 +67,7 @@ class SynthDataset(data.Dataset, Configurable):
         self.test_s =self.valid_e
         self.test_e =self.num_samples
 
-    def get_all_samples(self):
+    def get_all_samples(self, snumber):
         for i in range(len(self.data_dir)):
             print("Load Mat file ", self.data_dir)
             mat = scipy.io.loadmat(self.mat_list[i])
@@ -124,7 +125,11 @@ class SynthDataset(data.Dataset, Configurable):
             self.gt_maps += gt_map
             self.gt_maps_char += gt_map_char
             #print(image_path, " ", gt_path)
-        self.num_samples = len(self.image_paths)
+        
+        if(snumber== None or snumber > len(self.image_paths)):
+            self.num_samples = len(self.image_paths)
+        else:
+            self.num_samples = snumber
         
         
         

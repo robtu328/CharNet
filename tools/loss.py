@@ -225,13 +225,13 @@ class char_matching(nn.Module):
             sum1 = summary.summarize(all_objects)
             summary.print_(sum1)
         
-        for pic_idx in range(len(polygon_chars)):    
-            maxchar_score = torch.argmax(char_scores[pic_idx], 1).cpu().numpy()
+        for pic_idx in range(len(polygon_chars)):       #batch picture index
+            maxchar_score = torch.argmax(char_scores[pic_idx], 1).cpu().numpy()  # get the highest score index
             if(len(char_scores[pic_idx])==0):print('empty char score');continue
             
             match_idx=np.empty(len(polygon_chars[pic_idx]))
             match_idx[:]=None
-            for gidx in range(len(polygon_chars[pic_idx])):
+            for gidx in range(len(polygon_chars[pic_idx])):           #ground truth box
                 inter_area=np.zeros(len(char_bboxes[pic_idx]))
                 
                 
@@ -246,14 +246,16 @@ class char_matching(nn.Module):
             
                     
                 if (self.debug==True): print('PPoly', polygon_chars[pic_idx][gidx])
-                for pidx in range(len(char_bboxes[pic_idx])):
+                for pidx in range(len(char_bboxes[pic_idx])):           #predict box    
                     gpoly=pyclipper.scale_to_clipper(char_bboxes[pic_idx][pidx][:8].reshape((4, 2)))
                     gpoly1=char_bboxes[pic_idx][pidx][:8].reshape(4,2)
                     if (self.debug==True): print('GPoly', gpoly1)
                     if((gpoly1[0]==gpoly1[1]).all() or (gpoly1[0]==gpoly1[2]).all() or
                        (gpoly1[0]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[3]).all() or
                        (gpoly1[2]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[2]).all()):
+                        solution=[]
                         inter=0
+                        pc=None
                     
                     else:
                         pc = pyclipper.Pyclipper()
@@ -262,15 +264,17 @@ class char_matching(nn.Module):
                         pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
                         solution = pc.Execute(pyclipper.CT_INTERSECTION)
                     
+                    
                     if len(solution) == 0:
                         inter = 0
+                        inter_area[pidx]=inter
                     else:
-                        inter = pyclipper.scale_from_clipper(
+                        inter = pyclipper.scale_from_clipper(           #IOU calculation
                             pyclipper.scale_from_clipper(pyclipper.Area(solution[0])))
                         
                         inter_area[pidx]=inter
                      
-                gmax_idx= np.argmax(inter_area) #Find the most match golden box's index, inter_area len=golden 
+                gmax_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
 
                 if(inter_area[gmax_idx] != 0):
                     match_idx[gidx] = gmax_idx

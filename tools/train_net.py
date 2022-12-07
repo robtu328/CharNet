@@ -94,25 +94,13 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     
     #debug=True
     epochs=train_cfg['epochs']
-    #charnet = CharNet()
-    #charnet.load_state_dict(torch.load(cfg.WEIGHT))
-    #charnet.eval()
     charnet.train()
     charnet.cuda()
     params=params_gen(charnet)
-    #params1=params_gen(charnet.backbone) + params_gen(charnet.word_detector)
-    #params2=params_gen(charnet.backbone) + params_gen(charnet.char_detector)
-    #params3=params_gen(charnet.backbone) + params_gen(charnet.char_recognizer)
     
     
     optimizer = torch.optim.SGD(params, momentum=0.001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
-    #optimizer1 = torch.optim.SGD(params1, momentum=0.001)
-    #scheduler1 = lr_scheduler.StepLR(optimizer1, step_size=10000, gamma=0.94)
-    #optimizer2 = torch.optim.SGD(params2, momentum=0.001)
-    #scheduler2 = lr_scheduler.StepLR(optimizer2, step_size=10000, gamma=0.94)
-    #optimizer3 = torch.optim.SGD(params3, momentum=0.001)
-    #scheduler3 = lr_scheduler.StepLR(optimizer3, step_size=10000, gamma=0.94)
 
     criterion = LossFunc()
     cmatch= char_matching(cfg)
@@ -125,10 +113,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     batch_times = 0
     loss_all = 0
     
-#    for batch in img_loader:
-#        for ind in range(len(batch['image'])):
     time=0
-#    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
 
     tracemalloc.start()
     snapshotO = tracemalloc.take_snapshot()
@@ -182,6 +167,9 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 summary.print_(sum1)
             
             loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
+            #loss4=0 
+            #number=0
+            #correct=0
             #loss4 = 0
             #number =1
             #correct = 0
@@ -206,36 +194,19 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             weighted4=0.4
             #loss_all = loss1 + loss2 + loss3
             loss_all = loss1*weighted1 + loss2*weighted2 + loss3*weighted3
-            print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
+            print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
             #scheduler.step()
 
             loss_all=loss_all / back_batch_time
             loss_all.backward()
             
-            
-            #loss1=loss1 / back_batch_time
-            #loss2=loss2 / back_batch_time
-            #loss3=loss3 / back_batch_time
-            
-            #loss1.backward()
-            #loss2.backward()
-            #loss3.backward()
+        
             batch_times = batch_times + 1
         
             if batch_times >= back_batch_time:
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
-                
- #               optimizer1.step()
- #               scheduler1.step()
- #               optimizer1.zero_grad()
- #               optimizer2.step()
- #               scheduler2.step()
- #               optimizer2.zero_grad()            
- #               optimizer3.step()
- #               scheduler3.step()
- #               optimizer3.zero_grad()            
                 batch_times = 0
         
 
@@ -257,16 +228,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
  #                   'optimizer3'  : optimizer3.state_dict()
                     }
             
-            #save_checkpoint(state, epoch)
-#            del images
-#            del pred_char_orient
-#            del score_map
-#            del geo_map
-#            del training_mask
-#            del score_map_char_mask
-#            del score_map_mask
-#            del geo_map_char
-#            del training_mask_char
+
             images=None
             images_np=None
             pred_word_orient=None
@@ -332,7 +294,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
 
 
 
-def test_model( charnet, args, cfg, img_loader, debug=False ):
+def validate_model( charnet, args, cfg, img_loader, debug=False ):
     
 
     #charnet = CharNet()
@@ -341,6 +303,7 @@ def test_model( charnet, args, cfg, img_loader, debug=False ):
     charnet.eval()
     charnet.cuda()
     params=params_gen(charnet)
+    img_loader.dataset.mode == 'valid'
     
     #optimizer = torch.optim.SGD(params, momentum=0.001)
     #scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
@@ -356,13 +319,24 @@ def test_model( charnet, args, cfg, img_loader, debug=False ):
 #    for batch in img_loader:
 #        for ind in range(len(batch['image'])):
     time=0
-    back_batch_time = 4
+    
+
+    loss_all = 0
+
+
+    loss1_total = 0
+    loss2_total = 0
+    loss3_total = 0
+    loss4_total = 0
+    iter_cnt = 0
+    total_number=1
+    correct_number=0
+
 #    for (images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars) in img_loader:
-    for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np) in img_loader: 
+    for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars) in img_loader:
         char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
             pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls \
-            = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
-            
+            = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)            
             
         #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))
         #pred_char_tblr = torch.permute(pred_char_tblr, (0, 2, 3, 1))
@@ -390,24 +364,66 @@ def test_model( charnet, args, cfg, img_loader, debug=False ):
                 
         loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
         loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
-        loss3 = dice_loss(score_map_char, pred_char_cls)
- 
+        loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
+
+        loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
+
+        
+        total_number = total_number+number
+        correct_number=correct_number+correct
+
+        loss1_total = loss1_total + loss1
+        loss2_total = loss2_total + loss2
+        loss3_total = loss3_total + loss3
+        loss4_total = loss4_total + loss4
+    
+    
         weighted1=0.3
         weighted2=0.3
         weighted3=0.4
+        weighted4=0.4
         #loss_all = loss1 + loss2 + loss3
         loss_all = loss1*weighted1 + loss2*weighted2 + loss3*weighted3
-        print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3)
+        print ("Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
+
+
+
         #scheduler.step()
         #optimizer.zero_grad()
         #loss_all.backward()
         #optimizer.step()
         #scheduler.step()
         
-        
+        iter_cnt = iter_cnt + 1
         time = time + 1
+        
+        images=None
+        images_np=None
+        pred_word_orient=None
+        pred_word_fg=None
+        pred_word_tblr=None
+        pred_char_fg=None
+        pred_char_tblr=None
+        pred_char_orient=None
+        pred_char_cls=None
+        char_bboxes=None
+        char_scores=None
+        polygon_chars=None
+        
+        
+        
+        
+    
         if debug==True and time == 10:
             exit()
+
+
+    loss1_average = loss1_total / iter_cnt
+    loss2_average = loss2_total / iter_cnt
+    loss3_average = loss3_total / iter_cnt
+    loss_average = loss1_average*weighted1 + loss2_average*weighted2 + loss3_average*weighted3
+    print (eidx, " epoch, ", iter_cnt, "Loss average all: ", loss_average, "loss1_average: ", loss1_average, "loss2_average: ", loss2_average, "loss3_average: ", loss3_average)
+        
 
         #for ind in range(len(images)):
         #    char_bboxes, char_scores, word_instances = charnet(images[ind], 1, 1, images[ind].size()[0], images[ind].size()[1])
