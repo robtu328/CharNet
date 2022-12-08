@@ -27,6 +27,7 @@ import psutil
 from pympler import muppy, summary
 
 #Profile
+import gc
 import cProfile
 import pstats
 from pstats import SortKey
@@ -167,12 +168,13 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 summary.print_(sum1)
             
             loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
+            
+            #loss3=0
             #loss4=0 
-            #number=0
+            #number=1
             #correct=0
-            #loss4 = 0
-            #number =1
-            #correct = 0
+            
+            
             if debug == True:
                 all_objects = muppy.get_objects()
                 sum1 = summary.summarize(all_objects)
@@ -247,8 +249,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             snapshotN = tracemalloc.take_snapshot()
             snapshotN.filter_traces((tracemalloc.Filter(True, "loss"),
                                      tracemalloc.Filter(True, "<unknown>"),))
-            #top_stats = snapshotN.statistics('lineno')
-            top_stats = snapshotN.compare_to(snapshotO, 'lineno')
+            top_stats = snapshotN.statistics('lineno')
+            #top_stats = snapshotN.compare_to(snapshotO, 'lineno')
             snapshotO = snapshotN
             print("[Top 10]")
             for stat in top_stats[:10]:
@@ -261,6 +263,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             if (debug==True):
                 print("GPU Usage after emptying the cache")
                 gpu_usage()
+                
+            
         torch.save(charnet.state_dict(), './model_save.pth')
         loss1_average = loss1_total / iter_cnt
         loss2_average = loss2_total / iter_cnt

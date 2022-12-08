@@ -234,7 +234,11 @@ class CharNet(nn.Module):
             word_instances.append(word_instance)
             valid_boxes.append(valid_boxe)
             ss_word_bboxes.append(ss_word_bboxe)
-                 
+        #char_bboxe=None
+        #char_score=None
+        #word_instance=None
+        #valid_boxe=None
+        #ss_word_bboxe=None        
             
         return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls 
 
