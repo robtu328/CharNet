@@ -115,9 +115,9 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     loss_all = 0
     
     time=0
-
-    tracemalloc.start()
-    snapshotO = tracemalloc.take_snapshot()
+    if debug:
+        tracemalloc.start()
+        snapshotO = tracemalloc.take_snapshot()
     
     for eidx in range (train_synth_cfg['epochs']):
         loss1_total = 0
@@ -185,23 +185,27 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             total_number = total_number+number
             correct_number=correct_number+correct 
             
-            loss1_total = loss1_total + loss1
-            loss2_total = loss2_total + loss2
-            loss3_total = loss3_total + loss3
-            loss4_total = loss4_total + loss4
+            #loss1_total = loss1_total + loss1
+            #loss2_total = loss2_total + loss2
+            #loss3_total = loss3_total + loss3
+            #loss4_total = loss4_total + loss4
             
             weighted1=0.3
             weighted2=0.3
             weighted3=0.4
             weighted4=0.4
             #loss_all = loss1 + loss2 + loss3
-            loss_all = loss1*weighted1 + loss2*weighted2 + loss3*weighted3
+            loss_all = loss1*weighted1 + loss2*weighted2 + loss4*weighted4
             print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
             #scheduler.step()
 
             loss_all=loss_all / back_batch_time
             loss_all.backward()
-            
+            #loss1=None
+            #loss2=None
+            #loss3=None
+            #loss4=None
+            #loss_all=None
         
             batch_times = batch_times + 1
         
@@ -243,18 +247,21 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             char_bboxes=None
             char_scores=None 
             polygon_chars=None
+            line_chars=None
             
             print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
             
-            snapshotN = tracemalloc.take_snapshot()
-            snapshotN.filter_traces((tracemalloc.Filter(True, "loss"),
+            
+            if debug:
+                snapshotN = tracemalloc.take_snapshot()
+                snapshotN.filter_traces((tracemalloc.Filter(True, "loss"),
                                      tracemalloc.Filter(True, "<unknown>"),))
-            top_stats = snapshotN.statistics('lineno')
-            #top_stats = snapshotN.compare_to(snapshotO, 'lineno')
-            snapshotO = snapshotN
-            print("[Top 10]")
-            for stat in top_stats[:10]:
-                print(stat)
+                top_stats = snapshotN.statistics('lineno')
+                #top_stats = snapshotN.compare_to(snapshotO, 'lineno')
+                snapshotO = snapshotN
+                print("[Top 10]")
+                for stat in top_stats[:10]:
+                    print(stat)
             
 #            all_objects = muppy.get_objects()
 #            sum1 = summary.summarize(all_objects)
@@ -264,13 +271,16 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 print("GPU Usage after emptying the cache")
                 gpu_usage()
                 
+            print("GPU Usage after emptying the cache")
+            gpu_usage()    
             
         torch.save(charnet.state_dict(), './model_save.pth')
-        loss1_average = loss1_total / iter_cnt
-        loss2_average = loss2_total / iter_cnt
-        loss3_average = loss3_total / iter_cnt
-        loss_average = loss1_average*weighted1 + loss2_average*weighted2 + loss3_average*weighted3
-        print (eidx, " epoch, ", iter_cnt, "Loss average all: ", loss_average, "loss1_average: ", loss1_average, "loss2_average: ", loss2_average, "loss3_average: ", loss3_average)
+        #loss1_average = loss1_total / iter_cnt
+        #loss2_average = loss2_total / iter_cnt
+        #loss3_average = loss3_total / iter_cnt
+        #loss4_average = loss4_total / iter_cnt
+        #loss_average = loss1_average*weighted1 + loss2_average*weighted2 + loss3_average*weighted3
+        #print (eidx, " epoch, ", iter_cnt, "Loss average all: ", loss_average, "loss1_average: ", loss1_average, "loss2_average: ", loss2_average, "loss3_average: ", loss3_average, "loss4_average: ", loss4_average)
         #for ind in range(len(images)):
         #    char_bboxes, char_scores, word_instances = charnet(images[ind], 1, 1, images[ind].size()[0], images[ind].size()[1])
 #            char_bboxes, char_scores, word_instances = charnet(batch['image'][ind].numpy().astype('uint8'), 1, 1, batch['image'][ind].size()[0], batch['image'][ind].size()[1])
