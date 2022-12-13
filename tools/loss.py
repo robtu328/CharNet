@@ -184,7 +184,7 @@ class char_matching(nn.Module):
         self.num_class = len(self.char_dict)
         for k, v in self.char_dict.items():
             self.char_dict_reverse[v] = k 
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = nn.CrossEntropyLoss(reduction='sum')
         self.debug = False
         
     def iou(self, bbox_p, bbox_g):
@@ -325,7 +325,11 @@ class char_matching(nn.Module):
             match_idx=None
             pred_line=None 
             pred_number=None 
-            del maxchar_score, inter_area, gmax_idx, pc, golden_class
+            inter_area=None
+            gmax_idx=None
+            pc=None
+            golden_class=None
+            dmaxchar_score=None
 
         
 #        if 'golden_class_onehot' in locals():
@@ -335,7 +339,7 @@ class char_matching(nn.Module):
 #        torch.cuda.empty_cache()
         
         loss=loss/len(polygon_chars)
-        loss=loss/self.num_class
+        #loss=loss/self.num_class
         if(self.debug):
             print("polygon_chars ref count", sys.getrefcount(polygon_chars))
             print("loss ref count", sys.getrefcount(loss))

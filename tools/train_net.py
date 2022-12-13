@@ -100,7 +100,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     params=params_gen(charnet)
     
     
-    optimizer = torch.optim.SGD(params, momentum=0.001)
+    #optimizer = torch.optim.SGD(params, momentum=0.001)
+    optimizer = torch.optim.SGD(params,lr=0.007, momentum=0.9)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
 
     criterion = LossFunc()
@@ -110,7 +111,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
     #batch=next(sequence)
     #default_collate(batch)
-    back_batch_time = 4
+    back_batch_time = 8
     batch_times = 0
     loss_all = 0
     
@@ -159,7 +160,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                     
             loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
             loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
-            loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
+            #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             
             if debug == True:
                 print ("Memory check start")
@@ -169,7 +170,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             
             loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
             
-            #loss3=0
+            loss3=0
             #loss4=0 
             #number=1
             #correct=0
@@ -193,9 +194,9 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             weighted1=0.3
             weighted2=0.3
             weighted3=0.4
-            weighted4=0.4
+            weighted4=1.0
             #loss_all = loss1 + loss2 + loss3
-            loss_all = loss1*weighted1 + loss2*weighted2 + loss4*weighted4
+            loss_all = loss1*weighted1 + loss2*weighted2 + (loss4)*weighted4
             print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
             #scheduler.step()
 
@@ -249,7 +250,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             polygon_chars=None
             line_chars=None
             
-            print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
+            if (debug==True):print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
             
             
             if debug:
@@ -271,8 +272,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 print("GPU Usage after emptying the cache")
                 gpu_usage()
                 
-            print("GPU Usage after emptying the cache")
-            gpu_usage()    
+            #print("GPU Usage after emptying the cache")
+            #gpu_usage()    
             
         torch.save(charnet.state_dict(), './model_save.pth')
         #loss1_average = loss1_total / iter_cnt
