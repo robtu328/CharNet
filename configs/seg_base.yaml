@@ -23,7 +23,8 @@ define:
           only_resize: False
           keep_ratio: False
         - class: RandomCropData
-          size: [640, 640]
+          #size: [640, 640]
+          size: [2560, 1280]
           max_tries: 10
         - class: MakeICDARData
         - class: MakeSegDetectionData
@@ -45,12 +46,15 @@ define:
         - class: AugmentDetectionData
           augmenter_args:
               - ['Fliplr', 0.5]
-              - {'cls': 'Affine', 'rotate': [-10, 10]}
-              - ['Resize', [0.5, 3.0]]
+              - {'cls': 'Affine', 'rotate': [0, 0]}
+              #- {'cls': 'Affine', 'rotate': [-5, 5]}
+              - ['Resize', [1, 1]]
+              #- ['Resize', [0.5, 3.0]]
           only_resize: False
           keep_ratio: False
         - class: RandomCropData
-          size: [640, 640]
+          #size: [640, 640]
+          size: [1280, 640]
           max_tries: 10
         - class: MakeICDARData
 #        - class: MakeSegDetectionData
@@ -64,6 +68,7 @@ define:
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
+    snumber: 1500
 
   - name: validate_data
     class: ImageDataset
@@ -90,15 +95,15 @@ define:
             dataset: ^train_data
             batch_size: 16
             num_workers: 16
-        epochs: 12
+        epochs: 100
     train_synth: 
         class: TrainSettings
         data_loader: 
             class: DataLoader
             dataset: ^train_data_synth
-            batch_size: 1
-            num_workers: 1
-        epochs: 12
+            batch_size: 2
+            num_workers: 2
+        epochs: 100
         
         
         

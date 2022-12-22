@@ -52,8 +52,8 @@ class MakeBorderMap(DataProcess):
         #    if ignore_tags[i]:
         #        continue
         #    self.draw_border_map(polygons[i], canvas, mask=mask)
-        
-        score_map, geo_map, training_mask, rects=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons, ignore_tags, lines_text)
+        # imsize = (h,w), image.shape[0]=h, image.shape[1]=>w
+        score_map, geo_map, training_mask, rects=generate_rbox((data['image'].shape[0], data['image'].shape[1]), polygons, ignore_tags, lines_text)
         if (self.debug == True):
             for idx, (po, rec) in enumerate(zip(polygons, rects)):
                 print('Poly:', po)
@@ -81,7 +81,7 @@ class MakeBorderMap(DataProcess):
         #        continue
         #    self.draw_border_map(polygons_char[i], canvas_char, mask=mask_char)
             
-        score_map_char, geo_map_char, training_mask_char, rects_char=generate_rbox((data['image'].shape[1], data['image'].shape[0]), polygons_char, ignore_tags_char, lines_char, 'C', self.char_rev_dict)
+        score_map_char, geo_map_char, training_mask_char, rects_char=generate_rbox((data['image'].shape[0], data['image'].shape[1]), polygons_char, ignore_tags_char, lines_char, 'C', self.char_rev_dict)
         data['score_map_char'] = score_map_char         # Character detection
         data['geo_map_char'] = geo_map_char             # Character recognization 
         data['training_mask_char'] = training_mask_char
