@@ -184,7 +184,8 @@ class char_matching(nn.Module):
         self.num_class = len(self.char_dict)
         for k, v in self.char_dict.items():
             self.char_dict_reverse[v] = k 
-        self.loss = nn.CrossEntropyLoss(reduction='sum')
+        #self.loss = nn.CrossEntropyLoss(reduction='sum')
+        self.loss = nn.CrossEntropyLoss()
         self.debug = False
         
     def iou(self, bbox_p, bbox_g):
