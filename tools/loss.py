@@ -174,6 +174,45 @@ def Giou_np(bbox_p, bbox_g):
     return giou, loss_iou, loss_giou
 
 
+def keep_ce_loss(
+            pred_char_fg, pred_char_cls,
+            score_map_mask, score_map_char
+    ):
+        ce=nn.CrossEntropyLoss()
+        char_boxes_pic=[]
+        char_scores_pic=[]
+        score_map_keep_pic=[]
+        
+        loss=torch.zeros(score_map_mask.shape[0])
+        
+        for pidx in range(score_map_mask.shape[0]):
+            
+            char_keep_rows, char_keep_cols = np.where(score_map_mask[pidx] > 0)
+
+            
+            char_scores = torch.zeros(char_keep_rows.shape[0], pred_char_cls.shape[1])
+            score_map_char_keep = np.zeros(char_keep_rows.shape[0], dtype=np.int64)
+        
+            for idx in range(char_keep_rows.shape[0]):
+                y, x = char_keep_rows[idx], char_keep_cols[idx]
+                
+                score = pred_char_fg[pidx][1][y, x]
+                char_scores[idx, :] = pred_char_cls[pidx][:, y, x]
+                score_map_char_keep [idx]=score_map_char[pidx][y,x]
+            #keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
+            #    oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
+            #    )
+            print("Char keep len = ", len(char_keep_rows))
+        
+      
+            char_scores_pic.append(char_scores)
+            score_map_keep_pic.append(score_map_char_keep)
+            loss[pidx]=ce(char_scores, torch.from_numpy(score_map_char_keep.astype('int64')))
+            char_scores=None
+            score_map_char_keep=None
+            
+
+        return torch.mean(loss)
 
 
 class char_matching(nn.Module):

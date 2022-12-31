@@ -108,7 +108,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     optimizer = torch.optim.SGD(params,lr=0.05, momentum=0.9)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
 
-    criterion = LossFunc()
+    criterion = LossFunc() 
     cmatch= char_matching(cfg)
     
     #sequence=iter(img_loader)
@@ -153,19 +153,36 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             score_map_char_mask=torch.where(score_map_char> 0, 1, 0)  
             score_map_char_adjust=torch.where(score_map_char> 0, -1, 0) 
             score_map_char = score_map_char + score_map_char_adjust
+                        
+            
             
             score_map=score_map.cuda()
             geo_map=torch.permute(geo_map.cuda(), (0,3,1,2))
             training_mask=training_mask.cuda()
             score_map_char_mask=score_map_char_mask.cuda()
             score_map_mask=score_map_char.cuda()
+            score_map_mask_np=score_map_char_mask.cpu().numpy()
+            
             geo_map_char=torch.permute(geo_map_char[0].cuda(), (0,3,1,2))
             training_mask_char=training_mask_char.cuda()    
                     
+            
+            
+            #char_bboxes_loss, char_scores_loss = charnet.post_processing.parse_char_in_gt(
+            #    pred_word_fg, pred_char_fg, pred_char_tblr, pred_char_cls,
+            #    score_map_mask_np, geo_map_char, score_map_char, 
+            #    1, 1, images[0].size()[1], images[0].size()[2]
+            #)
+            
+            
             loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
             loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
+            
+            loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_mask_np, score_map_char)
+            pred_char_fg, pred_char_cls,
+            score_map_mask, score_map_char
             
             if debug == True:
                 print ("Memory check start")
@@ -200,9 +217,10 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             weighted2=0.3
             weighted3=0.4
             weighted4=1.0
+            weighted5=0.8
             #loss_all = loss1 + loss2 + loss3
-            loss_all = loss1*weighted1 + loss2*weighted2 + (loss4)*weighted4
-            print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
+            loss_all = loss1*weighted1 + loss2*weighted2 + (loss5)*weighted5
+            print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "loss5:", loss5, "accuracy:", correct_number/total_number)
             #scheduler.step()
 
             loss_all=loss_all / back_batch_time

@@ -693,6 +693,7 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
         # if geometry == 'RBOX':
         # 对任意两个顶点的组合生成一个平行四边形
         fitted_parallelograms = []
+        #print("Poly, ", poly)
         for i in range(4):
             p0 = poly[i]
             p1 = poly[(i + 1) % 4]
@@ -759,8 +760,18 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             new_p1 = line_cross_point(backward_opposite, edge)
             new_p2 = line_cross_point(backward_opposite, edge_opposite)
             fitted_parallelograms.append([new_p0, new_p1, new_p2, new_p3, new_p0])
-
-        areas = [Polygon(t).area if t!=[] else print("Nulll Poly Area")for t in fitted_parallelograms]
+            
+        #print(fitted_parallelograms)
+        idx = 0
+        #print (' Len =', len(fitted_parallelograms))
+        for t in fitted_parallelograms:
+            if t==[]:
+                print("Nulll Poly Area")
+            elif any(elem is None for elem in t):
+                print("None in t")        
+            #print ("Index (", idx,")", t)
+            idx=idx+1
+        areas = [Polygon(t).area if t!=[] and all(elem is not None for elem in t) else 65536.0 for t in fitted_parallelograms]
         parallelogram = np.array(fitted_parallelograms[np.argmin(areas)][:-1], dtype=np.float32)
         # sort thie polygon
         parallelogram_coord_sum = np.sum(parallelogram, axis=1)

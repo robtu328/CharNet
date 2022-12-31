@@ -233,12 +233,13 @@ class OrientedTextPostProcessing(nn.Module):
         keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
             oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
         )
+        print("Char keep len = ", len(keep))
         new_oriented_char_bboxes = new_oriented_char_bboxes[keep]
         new_oriented_char_bboxes[:, :8] = new_oriented_char_bboxes[:, :8].round()
         new_oriented_char_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, new_oriented_char_bboxes[:, 0:8:2]))
         new_oriented_char_bboxes[:, 1:8:2] = np.maximum(0, np.minimum(H-1, new_oriented_char_bboxes[:, 1:8:2]))
-        new_char_scores1 = new_char_scores[keep].clone()
-
+        
+        new_char_scores1 = new_char_scores[keep]
         new_oriented_char_bboxes1 = new_oriented_char_bboxes.copy()        
         new_char_scores=None
         new_oriented_char_bboxes=None
@@ -253,7 +254,61 @@ class OrientedTextPostProcessing(nn.Module):
         
         return new_oriented_char_bboxes1, new_char_scores1
 
+    def parse_char_in_gt(
+            self, pred_word_fg, pred_char_fg,
+            pred_char_tblr, pred_char_cls,
+            score_map_mask, geo_map_char, score_map_char, 
+            scale_w, scale_h, W, H
+    ):
 
+        char_boxes_pic=[]
+        char_scores_pic=[]
+        score_map_keep_pic=[]
+        char_stride = self.char_stride 
+        
+        
+        for pidx in range(score_map_mask.shape[0]):
+            
+            char_keep_rows, char_keep_cols = np.where(score_map_mask[pidx] > 0)
+
+            oriented_char_bboxes = np.zeros((char_keep_rows.shape[0], 9), dtype=np.float32)
+            char_scores = torch.zeros(char_keep_rows.shape[0], self.num_char_class)
+            score_map_char_keep = np.zeros(char_keep_rows.shape[0], dtype=np.int32)
+        
+            for idx in range(oriented_char_bboxes.shape[0]):
+                y, x = char_keep_rows[idx], char_keep_cols[idx]
+                t, b, l, r = pred_char_tblr[pidx][:, y, x].detach().cpu().numpy()
+                o = 0.0  # pred_char_orient[y, x]
+                score = pred_char_fg[pidx][1][y, x]
+                four_points = rotate_rect(
+                    scale_w * char_stride * (x-l), scale_h * char_stride * (y-t),
+                    scale_w * char_stride * (x+r), scale_h * char_stride * (y+b),
+                    o, scale_w * char_stride * x, scale_h * char_stride * y)
+                oriented_char_bboxes[idx, :8] = np.array(four_points, dtype=np.float32).flat
+                oriented_char_bboxes[idx, 8] = score
+                char_scores[idx, :] = pred_char_cls[pidx][:, y, x]
+                score_map_char_keep [idx]=score_map_char[pidx][y,x]
+            #keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
+            #    oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
+            #    )
+            print("Char keep len = ", len(char_keep_rows))
+        
+            oriented_char_bboxes[:, :8] = oriented_char_bboxes[:, :8].round()
+            oriented_char_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, oriented_char_bboxes[:, 0:8:2]))
+            oriented_char_bboxes[:, 1:8:2] = np.maximum(0, np.minimum(H-1, oriented_char_bboxes[:, 1:8:2]))
+        
+            char_scores_pic.append(char_scores)
+            char_boxes_pic.append(oriented_char_bboxes.copy()) 
+            score_map_keep_pic.append(score_map_char_keep)
+            
+            char_scores=None
+            oriented_char_bboxes=None
+            
+#        del pred_char_cls
+#        gc.collect()
+#        torch.cuda.empty_cache()
+        
+        return char_boxes_pic, char_scores_pic
 
     def filter_word_instances(self, word_instances, lexicon):
         def match_lexicon(text, lexicon):
