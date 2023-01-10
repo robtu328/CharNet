@@ -17,6 +17,57 @@ import warnings
 from geo_map_cython_lib import gen_geo_map
 
 
+def blending_two_imgs(main_pic, ref_pic):
+    
+    ih,iw,ic = main_pic.shape
+    rh,rw=ref_pic.shape
+    
+    if (iw !=rw) or (ih != rh):
+        ref_pic1 = cv2.resize(ref_pic, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+    else:
+        ref_pic1=ref_pic
+        
+    test=ref_pic1*128
+    test2=cv2.cvtColor(test, cv2.COLOR_GRAY2BGR)
+#beta = ( 1.0 - alpha );
+    blend_pic=cv2.addWeighted( main_pic, 0.5, test2, 0.5, 0.0)
+
+    return blend_pic
+
+def bonding_box_plane(geo_map):
+    
+    d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
+    d1=d1.cpu().detach().numpy()
+    d2=d2.cpu().detach().numpy()
+    d3=d3.cpu().detach().numpy()
+    d4=d4.cpu().detach().numpy()
+
+    h=geo_map.shape[2]
+    w=geo_map.shape[3]
+    bbox= np.zeros((h, w), dtype=np.uint8)
+    bbox=cv2.cvtColor(bbox, cv2.COLOR_GRAY2BGR)
+    b= np.zeros((8), dtype=np.uint32)
+            
+    for hidx in range(h):
+        for widx in range(w):
+            if (d1[0][0][hidx][widx] !=0):
+                #top left
+                b[0] = widx - d3[0][0][hidx][widx]
+                b[1] = hidx - d1[0][0][hidx][widx]
+                #top right
+                b[2] = widx + d4[0][0][hidx][widx]
+                b[3] = hidx - d1[0][0][hidx][widx]
+                #bottom right
+                b[4] = widx + d3[0][0][hidx][widx]
+                b[5] = hidx + d1[0][0][hidx][widx]
+                #bottom left
+                b[6] = widx - d3[0][0][hidx][widx]
+                b[7] = hidx + d1[0][0][hidx][widx]
+            
+                pts=np.array([[b[0], b[1]], [b[2], b[3]], [b[4], b[5]], [b[6], b[7]]], np.int32)
+                cv2.polylines(bbox, [pts], True, (0, 255,255))
+
+    return bbox
 
 
 def get_images(root):
@@ -667,15 +718,18 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
         shrinked_poly = shrink_poly(poly.copy(), r).astype(np.int32)[np.newaxis, :, :]
         #print("W/C", WC, "text", text)
         #print("Poly", poly)
+        
+        
         if (WC != 'C'):
             #print("Shrink Poly", shrinked_poly)
             cv2.fillPoly(score_map, shrinked_poly, 1)
         else:
-            Utext=str(text).upper()
-            if Utext in table.keys(): 
-               cv2.fillPoly(score_map, shrinked_poly, table[Utext]+1)
-            else:
-               print("Tag in not in the tabl: ", Utext  )
+            cv2.fillPoly(score_map, shrinked_poly, 1)
+            #Utext=str(text).upper()
+            #if Utext in table.keys(): 
+            #   cv2.fillPoly(score_map, shrinked_poly, table[Utext]+1)
+            #else:
+            #   print("Tag is not in the tabl: ", Utext  )
 
 
         # use different color to draw poly mask

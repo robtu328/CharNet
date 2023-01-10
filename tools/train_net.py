@@ -18,7 +18,7 @@ from data.synth_dataset import SynthDataset
 from data.data_loader import DataLoader, TrainSettings
 
 from concern.config import Configurable, Config
-from data.data_utils import generate_rbox
+from data.data_utils import generate_rbox, blending_two_imgs, bonding_box_plane
 from data.data_loader import default_collate
 from torch.optim import lr_scheduler
 from tools.loss import *
@@ -107,6 +107,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     #optimizer = torch.optim.SGD(params,lr=0.007, momentum=0.9)
     optimizer = torch.optim.SGD(params,lr=0.05, momentum=0.9)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
+    #invTrans  = img_loader.dataset.processes[4]
 
     criterion = LossFunc() 
     cmatch= char_matching(cfg)
@@ -133,9 +134,21 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         total_number=1
         correct_number=0
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars) in img_loader: 
+            if debug:
+                img=invTrans.lib_inv_trans(images[0])
+                blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
+                blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
+                cv2.destroyAllWindows()
+                cv2.imshow("test", blend_img)
+                cv2.waitKey()
+                cv2.destroyAllWindows()
+                cv2.imshow("test", blend_char_img)
+                cv2.waitKey()
+            
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
-                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls \
+                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, valid_boxes \
                     = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
+                 
             
             
             #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))
@@ -154,7 +167,20 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             score_map_char_adjust=torch.where(score_map_char> 0, -1, 0) 
             score_map_char = score_map_char + score_map_char_adjust
                         
+            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1, 0).cpu().numpy()
+            pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1, 0).cpu().numpy()
             
+            if debug:
+                img=invTrans.lib_inv_trans(images[0])
+                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
+                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].astype('uint8'))
+                cv2.destroyAllWindows()
+                cv2.imshow("test", blend_img)
+                cv2.waitKey()
+            
+            #img=invTrans.lib_inv_trans(images[0])
+            #for i in range(len(valid_boxe)):b=valid_boxe[i][1][0:8].astype('int32'); pts=[b];cv2.polylines(img, pts, True, (0, 0,255));
+
             
             score_map=score_map.cuda()
             geo_map=torch.permute(geo_map.cuda(), (0,3,1,2))
@@ -173,8 +199,28 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #    score_map_mask_np, geo_map_char, score_map_char, 
             #    1, 1, images[0].size()[1], images[0].size()[2]
             #)
+            #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
             
-            
+                        
+#            if debug:
+#                img=invTrans.lib_inv_trans(images[0])
+#                ic, ih, iw= images[0].shape
+#                bbox_gt=bonding_box_plane(geo_map)
+#                bbox_pd=bonding_box_plane(pred_word_tblra)
+#                bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+#                bbox_pd1 = cv2.resize(bbox_pd, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+#                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
+#                
+#                cv2.destroyAllWindows()
+#                cv2.imshow('Test', blend_pic)
+#                cv2.waitKey()
+#            
+#                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
+#                cv2.destroyAllWindows()
+#                cv2.imshow('Test', blend_pic)
+#                cv2.waitKey()
+#            
+
             loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
             loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
@@ -217,7 +263,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             weighted2=0.3
             weighted3=0.4
             weighted4=1.0
-            weighted5=0.8
+            weighted5=0.4
             #loss_all = loss1 + loss2 + loss3
             loss_all = loss1*weighted1 + loss2*weighted2 + (loss5)*weighted5
             print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "loss5:", loss5, "accuracy:", correct_number/total_number)
@@ -274,6 +320,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             char_scores=None 
             polygon_chars=None
             line_chars=None
+            valid_boxes=None
+            #indexes=None
             
             if (debug==True):print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
             
@@ -441,7 +489,7 @@ def validate_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         weighted1=0.3
         weighted2=0.3
         weighted3=0.4
-        weighted4=1.0
+        weighted4=0.4
         #loss_all = loss1 + loss2 + loss3
         loss_all = loss1*weighted1 + loss2*weighted2 + (loss4)*weighted4
         print ("No:", iter_cnt, ", Loss all: ", loss_all, "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "accuracy:", correct_number/total_number)
@@ -617,18 +665,24 @@ if __name__ == '__main__':
     
     
     myprocess=train_synth_img_loader.data_loader.dataset.processes;
+    #mydataset=train_synth_img_loader.data_loader.dataset
     #myprocess=train_synth_img_loader.data_loader.dataset[22]
     data = {}
-    image_path=train_synth_img_loader.data_loader.dataset.image_paths[973]
+    
     #target = train_synth_img_loader.data_loader.dataset.targets[1]
     #target_char = train_synth_img_loader.data_loader.dataset.targets_char[1]
-    data=train_synth_img_loader.data_loader.dataset.getData(973)
+    #image_path=train_synth_img_loader.data_loader.dataset.image_paths[973]
+    #data=train_synth_img_loader.data_loader.dataset.getData(973)
+    image_path=train_synth_img_loader.data_loader.dataset.image_paths[679]
+    data=train_synth_img_loader.data_loader.dataset.getData(679)
+    #data['index']=679
     
     imgr = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
     #imgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
     data['filename']=image_path
     data['data_id']=image_path
     data['image']=imgr
+    
     
     #data5=train_synth_img_loader.data_loader.dataset[1]
     #data['lines']=target
@@ -642,6 +696,8 @@ if __name__ == '__main__':
     data4=myprocess[3](data3)
     data5=myprocess[4](data4)
     data6=myprocess[5](data5)
+    
+    #dataf=mydataset[0]
     
     #dlen = len(train_synth_img_loader.data_loader)
     #print ('Len = ', dlen)

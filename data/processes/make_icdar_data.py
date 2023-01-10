@@ -27,6 +27,7 @@ class MakeICDARData(DataProcess):
         ignore_tags_char = []
         
         
+        
         annotations = data['polys']
         for annotation in annotations:
             polygons.append(np.array(annotation['points']))
@@ -57,7 +58,9 @@ class MakeICDARData(DataProcess):
                            filename=filename,
                            is_training=data['is_training'], 
                            lines_text=line_text, 
-                           lines_char=line_char)
+                           lines_char=line_char, 
+                           #index=data['index'],
+                           )
 
     def draw_polygons(self, image, polygons, ignore_tags):
         for i in range(len(polygons)):
