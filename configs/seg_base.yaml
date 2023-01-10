@@ -46,15 +46,15 @@ define:
         - class: AugmentDetectionData
           augmenter_args:
               - ['Fliplr', 0.5]
-              - {'cls': 'Affine', 'rotate': [0, 0]}
+              #- {'cls': 'Affine', 'rotate': [0, 0]}
               #- {'cls': 'Affine', 'rotate': [-5, 5]}
-              - ['Resize', [1, 1]]
+              - ['Resize', [640, 640]]
               #- ['Resize', [0.5, 3.0]]
           only_resize: False
           keep_ratio: False
         - class: RandomCropData
           #size: [640, 640]
-          size: [1280, 640]
+          size: [640, 640]
           max_tries: 10
         - class: MakeICDARData
 #        - class: MakeSegDetectionData
@@ -68,7 +68,7 @@ define:
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
-    snumber: 5000
+    snumber: 1000
 
   - name: validate_data
     class: ImageDataset
