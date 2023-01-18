@@ -49,7 +49,7 @@ def collate_fn(batch):
     geo_map_char = []
     training_mask_char = [] 
     polygon_chars = []
-    #indexes = []
+    indexes = []
     
    
     for index in range(bs):
@@ -93,7 +93,7 @@ def collate_fn(batch):
             k = torch.from_numpy(batch[index]['training_mask_char'])
             training_mask_char.append(k[::4, ::4])    
             
-            #indexes.append(batch[index]['index'])
+            indexes.append(batch[index]['index'])
 
 #           f = torch.from_numpy(batch[index]['gt'])
 #            gts.append(f)
@@ -144,7 +144,7 @@ def collate_fn(batch):
 
     #return images, score_maps, geo_maps, training_masks
     #return images, polygons, polygon_chars, lines_texts, lines_chars, gts, masks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars 
-    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np,  polygon_chars, lines_chars#, indexes
+    return images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np,  polygon_chars, lines_chars, indexes
 
 def default_collate(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""

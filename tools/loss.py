@@ -179,6 +179,7 @@ def keep_ce_loss(
             score_map_mask, score_map_char
     ):
         ce=nn.CrossEntropyLoss()
+        nloss=nn.NLLLoss()
         char_boxes_pic=[]
         char_scores_pic=[]
         score_map_keep_pic=[]
@@ -207,12 +208,167 @@ def keep_ce_loss(
       
             char_scores_pic.append(char_scores)
             score_map_keep_pic.append(score_map_char_keep)
-            loss[pidx]=ce(char_scores, torch.from_numpy(score_map_char_keep.astype('int64')))
+            loss[pidx]=nloss(torch.log(char_scores), torch.from_numpy(score_map_char_keep.astype('int64')))
             char_scores=None
             score_map_char_keep=None
             
 
         return torch.mean(loss)
+
+
+class char_matchingV2(nn.Module):
+    def __init__(self, cfg):
+        super(char_matching, self).__init__()
+        self.char_dict_reverse = {}
+        self.char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
+        self.num_class = len(self.char_dict)
+        for k, v in self.char_dict.items():
+            self.char_dict_reverse[v] = k 
+        #self.loss = nn.CrossEntropyLoss(reduction='sum')
+        self.loss = nn.CrossEntropyLoss()
+        self.debug = False
+        
+        
+    def forward(self, char_bboxes, char_scores, polygon_chars, line_chars):
+    
+        
+        match_all=[]
+        loss=torch.tensor(0)
+        rec_correct=0
+        total_number=0
+        
+        if (self.debug):
+            print("loss beginning")
+            all_objects = muppy.get_objects()
+            sum1 = summary.summarize(all_objects)
+            summary.print_(sum1)
+        
+        for pic_idx in range(len(polygon_chars)):       #batch picture index
+            maxchar_score = torch.argmax(char_scores[pic_idx], 1).cpu().numpy()  # get the highest score index
+            if(len(char_scores[pic_idx])==0):print('empty char score');continue
+            
+            match_idx=np.empty(len(polygon_chars[pic_idx]))
+            match_idx[:]=None
+            for gidx in range(len(polygon_chars[pic_idx])):           #ground truth box
+                inter_area=np.zeros(len(char_bboxes[pic_idx]))
+                
+                
+                ppoly=pyclipper.scale_to_clipper(polygon_chars[pic_idx][gidx].reshape((4, 2)))
+                if ((polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][1]).all() or
+                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][2]).all() or
+                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][2] == polygon_chars[pic_idx][gidx][3]).all() or
+                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][2]).all()):
+                    continue
+            
+                    
+                if (self.debug==True): print('PPoly', polygon_chars[pic_idx][gidx])
+                for pidx in range(len(char_bboxes[pic_idx])):           #predict box    
+                    gpoly=pyclipper.scale_to_clipper(char_bboxes[pic_idx][pidx][:8].reshape((4, 2)))
+                    gpoly1=char_bboxes[pic_idx][pidx][:8].reshape(4,2)
+                    if (self.debug==True): print('GPoly', gpoly1)
+                    if((gpoly1[0]==gpoly1[1]).all() or (gpoly1[0]==gpoly1[2]).all() or
+                       (gpoly1[0]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[3]).all() or
+                       (gpoly1[2]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[2]).all()):
+                        solution=[]
+                        inter=0
+                        pc=None
+                    
+                    else:
+                        pc = pyclipper.Pyclipper()
+                        #print('PPoly', ppoly)
+                        pc.AddPath(ppoly, pyclipper.PT_CLIP, True)
+                        pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
+                        solution = pc.Execute(pyclipper.CT_INTERSECTION)
+                    
+                    
+                    if len(solution) == 0:
+                        inter = 0
+                        inter_area[pidx]=inter
+                    else:
+                        inter = pyclipper.scale_from_clipper(           #IOU calculation
+                            pyclipper.scale_from_clipper(pyclipper.Area(solution[0])))
+                        
+                        inter_area[pidx]=inter
+                     
+                gmax_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
+
+                if(inter_area[gmax_idx] != 0):
+                    match_idx[gidx] = gmax_idx
+            
+                    
+            if(self.debug):print (match_idx)
+            pred_line=[]
+            pred_number=[]
+            for gidx in range(len(polygon_chars[pic_idx])):
+                pidx_char = None
+                if(not np.isnan(match_idx[gidx])):
+                    if(self.debug):
+                        print('gidx = ', gidx, "match_idx[gidx] = ", match_idx[gidx])
+                        print("Maxcharscore ", maxchar_score[match_idx[gidx].astype('uint')] )
+                    pred_line_chars= self.char_dict[maxchar_score[match_idx[gidx].astype('uint')].astype('uint')]
+                    golden_char=line_chars[pic_idx][gidx]
+                    pred_line.append(pred_line_chars)
+                    pred_number.append(maxchar_score[match_idx[gidx].astype('int')].astype('int'))
+                else:
+                    pred_line.append(" ")
+                    pred_number.append(-1)
+            
+            golden_class=[]
+            for k in line_chars[pic_idx]:
+                golden_class.append(self.char_dict_reverse[k.upper()])     
+            golden_class_onehot=torch.eye(self.num_class)[golden_class].cuda()
+            
+            pred_class_score=char_scores[pic_idx][match_idx.astype('uint8').tolist()]
+            
+            indices=np.where (np.array(pred_number) == -1)[0]
+            pred_class_score[indices] = 0
+            loss=loss + self.loss(pred_class_score.cuda(), golden_class_onehot)
+            for test, gold in zip(golden_class, pred_number):
+                total_number = total_number +1
+                if (test == gold):
+                   rec_correct = rec_correct + 1
+                   
+                   
+            #pred_class_onehot = torch.eye(self.num_class)[pred_number]
+            #pred_class_onehot[indices] = 0
+            #match_all.append(match_idx)
+            match_idx=None
+            pred_line=None 
+            pred_number=None 
+            inter_area=None
+            gmax_idx=None
+            pc=None
+            golden_class=None
+            dmaxchar_score=None
+
+        
+#        if 'golden_class_onehot' in locals():
+#            del golden_class_onehot
+#            del pred_class_score
+#        gc.collect()
+#        torch.cuda.empty_cache()
+        
+        loss=loss/len(polygon_chars)
+        #loss=loss/self.num_class
+        if(self.debug):
+            print("polygon_chars ref count", sys.getrefcount(polygon_chars))
+            print("loss ref count", sys.getrefcount(loss))
+            print("loss end")
+        
+            all_objects = muppy.get_objects()
+            sum1 = summary.summarize(all_objects)
+            summary.print_(sum1)
+        
+#        if(self.debug):print(match_all)
+#        del match_all
+           
+       
+        return loss, total_number, rec_correct
+#        return 0.1, 2, 1
+
+
 
 
 class char_matching(nn.Module):
@@ -469,7 +625,7 @@ class LossFunc(nn.Module):
     
         # calc area of Bc
 
-        U = area_pred + area_gt - I
+        #U = area_pred + area_gt - I
         #iou = 1.0 * I / U
 
         return I, U, theta_pred, theta_gt    
@@ -479,18 +635,20 @@ class LossFunc(nn.Module):
         classification_loss = dice_coefficient(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
+        #classification_loss *= 0.1
 
         # d1 -> top, d2->right, d3->bottom, d4->left
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
         #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
-        d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(y_true_geo, 1, 1)
-        d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(y_pred_geo, 1, 1)
-        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
-        area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
-        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
-        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
-        area_intersect = w_union * h_union
-        area_union = area_gt + area_pred - area_intersect
+        
+        #d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(y_true_geo, 1, 1)
+        #d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(y_pred_geo, 1, 1)
+        #area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        #area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
+        #w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
+        #h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        #area_intersect = w_union * h_union
+        #area_union = area_gt + area_pred - area_intersect
         
         if(self.losstype=='iou'):
             area_intersect, area_union, theta_pred, theta_gt = self.iou(y_pred_geo, y_true_geo)
@@ -504,5 +662,5 @@ class LossFunc(nn.Module):
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
 
-        return torch.mean(L_g * y_true_cls * training_mask) + classification_loss
+        return torch.mean(L_g.squeeze(1) * y_true_cls * training_mask) + classification_loss
 

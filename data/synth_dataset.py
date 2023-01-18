@@ -238,7 +238,7 @@ class SynthDataset(data.Dataset, Configurable):
         data = {}
         image_path = self.image_paths[index_update]
         img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
-        #data['index']=index_update
+        data['index']=index_update
 
         if self.debug== True:
             print("index = ",index_update," Image file name: ", image_path,"\n")

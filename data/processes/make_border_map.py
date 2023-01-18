@@ -6,7 +6,7 @@ import pyclipper
 
 from concern.config import State
 from .data_process import DataProcess
-from data.data_utils import generate_rbox
+from data.data_utils import generate_rbox#, blending_two_imgs, bonding_box_plane
 from charnet.modeling.postprocessing import load_char_rev_dict
 import yaml
 

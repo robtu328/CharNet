@@ -106,8 +106,9 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     #optimizer = torch.optim.SGD(params, momentum=0.001)
     #optimizer = torch.optim.SGD(params,lr=0.007, momentum=0.9)
     optimizer = torch.optim.SGD(params,lr=0.05, momentum=0.9)
+    optimizer.zero_grad()
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
-    #invTrans  = img_loader.dataset.processes[4]
+    invTrans  = img_loader.dataset.processes[4]
 
     criterion = LossFunc() 
     cmatch= char_matching(cfg)
@@ -133,7 +134,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         iter_cnt = 0
         total_number=1
         correct_number=0
-        for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars) in img_loader: 
+        debug = False
+        for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
             if debug:
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
@@ -173,9 +175,13 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             if debug:
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
-                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].astype('uint8'))
                 cv2.destroyAllWindows()
                 cv2.imshow("test", blend_img)
+                cv2.waitKey()
+                
+                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].astype('uint8'))
+                cv2.destroyAllWindows()
+                cv2.imshow("test", blend_char_img)
                 cv2.waitKey()
             
             #img=invTrans.lib_inv_trans(images[0])
@@ -187,7 +193,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             training_mask=training_mask.cuda()
             score_map_char_mask=score_map_char_mask.cuda()
             score_map_mask=score_map_char.cuda()
-            score_map_mask_np=score_map_char_mask.cpu().numpy()
+            score_map_char_mask_np=score_map_char_mask.cpu().numpy()
             
             geo_map_char=torch.permute(geo_map_char[0].cuda(), (0,3,1,2))
             training_mask_char=training_mask_char.cuda()    
@@ -201,34 +207,53 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #)
             #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
             
-                        
-#            if debug:
-#                img=invTrans.lib_inv_trans(images[0])
-#                ic, ih, iw= images[0].shape
-#                bbox_gt=bonding_box_plane(geo_map)
-#                bbox_pd=bonding_box_plane(pred_word_tblra)
-#                bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-#                bbox_pd1 = cv2.resize(bbox_pd, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-#                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
-#                
-#                cv2.destroyAllWindows()
-#                cv2.imshow('Test', blend_pic)
-#                cv2.waitKey()
-#            
-#                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
-#                cv2.destroyAllWindows()
-#                cv2.imshow('Test', blend_pic)
-#                cv2.waitKey()
-#            
+            debug1=False            
+            if debug1:
+                img=invTrans.lib_inv_trans(images[0])
+                ic, ih, iw= images[0].shape
+                bbox_gt=bonding_box_plane(geo_map)
+                score_map_unsqueeze=torch.stack((score_map, score_map, score_map, score_map, score_map), axis=1)
+                bbox_pd=bonding_box_plane(pred_word_tblra*score_map_unsqueeze)
+                bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+                bbox_pd1 = cv2.resize(bbox_pd, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+                
+                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
+                cv2.destroyAllWindows()
+                cv2.imshow('Test', blend_pic)
+                cv2.waitKey()
+            
+                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
+                cv2.destroyAllWindows()
+                cv2.imshow('Test', blend_pic)
+                cv2.waitKey()
+            
+                bbox_gt_char=bonding_box_plane(geo_map_char)
+                
+                score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_mask), axis=1)
+                bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
+                bbox_gt_char1 = cv2.resize(bbox_gt_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+                bbox_pd_char1 = cv2.resize(bbox_pd_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
+                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt_char1, 0.5, 0.0)
+                
+                cv2.destroyAllWindows()
+                cv2.imshow('Test', blend_pic)
+                cv2.waitKey()
+            
+                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd_char1, 0.5, 0.0)
+                cv2.destroyAllWindows()
+                cv2.imshow('Test', blend_pic)
+                cv2.waitKey()
+            
+            
 
             loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
             loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             
-            loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_mask_np, score_map_char)
-            pred_char_fg, pred_char_cls,
-            score_map_mask, score_map_char
+            loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
+            #pred_char_fg, pred_char_cls,
+            #score_map_mask, score_map_char
             
             if debug == True:
                 print ("Memory check start")
@@ -321,7 +346,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             polygon_chars=None
             line_chars=None
             valid_boxes=None
-            #indexes=None
+            indexes=None
             
             if (debug==True):print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
             
@@ -675,7 +700,15 @@ if __name__ == '__main__':
     #data=train_synth_img_loader.data_loader.dataset.getData(973)
     image_path=train_synth_img_loader.data_loader.dataset.image_paths[679]
     data=train_synth_img_loader.data_loader.dataset.getData(679)
-    #data['index']=679
+    data['index']=679
+    
+    image_path=train_synth_img_loader.data_loader.dataset.image_paths[172]
+    data=train_synth_img_loader.data_loader.dataset.getData(172)
+    data['index']=172
+    
+    image_path=train_synth_img_loader.data_loader.dataset.image_paths[444]
+    data=train_synth_img_loader.data_loader.dataset.getData(444)
+    data['index']=444
     
     imgr = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
     #imgr = cv2.imread(image_path, cv2.IMREAD_COLOR)

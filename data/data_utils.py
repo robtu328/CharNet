@@ -17,6 +17,33 @@ import warnings
 from geo_map_cython_lib import gen_geo_map
 
 
+
+def draw_bonding_box(data ):
+    
+    img=data['image']
+    ic, ih, iw= img.shape
+    bbox_gt=bonding_box_plane(data['geo_map'])
+                
+    blend_pic= cv2.addWeighted( img, 0.5, bbox_gt, 0.5, 0.0)
+    cv2.destroyAllWindows()
+    cv2.imshow('Test', blend_pic)
+    cv2.waitKey()
+  
+    return data
+
+def rotate_box(x1, y1, x2, y2, degree, center_x, center_y):
+    points = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]
+    new_points = list()
+    for point in points:
+        dx = point[0] - center_x
+        dy = point[1] - center_y
+        new_x = center_x + dx * math.cos(degree) - dy * math.sin(degree)
+        new_y = center_y + dx * math.sin(degree) + dy * math.cos(degree)
+        new_points.append([(new_x), (new_y)])
+    return new_points
+
+
+
 def blending_two_imgs(main_pic, ref_pic):
     
     ih,iw,ic = main_pic.shape
@@ -36,21 +63,35 @@ def blending_two_imgs(main_pic, ref_pic):
 
 def bonding_box_plane(geo_map):
     
-    d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
+
+    h=geo_map.shape[2]
+    w=geo_map.shape[3]
+    
+    if geo_map.shape[1]==5:
+        d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
+    else:
+        d1, d2, d3, d4 = torch.split(geo_map, 1, 1)
+        theta = np.zeros((1, 1, h, w), dtype=np.float)
+        
     d1=d1.cpu().detach().numpy()
     d2=d2.cpu().detach().numpy()
     d3=d3.cpu().detach().numpy()
     d4=d4.cpu().detach().numpy()
 
-    h=geo_map.shape[2]
-    w=geo_map.shape[3]
     bbox= np.zeros((h, w), dtype=np.uint8)
     bbox=cv2.cvtColor(bbox, cv2.COLOR_GRAY2BGR)
-    b= np.zeros((8), dtype=np.uint32)
+    b= np.zeros((8), dtype=np.int32)
             
+#    for hidx in range(10):#(h):
+#        for widx in range(10): #(w):
+    counts=0
+    counte=3
+    count=0
     for hidx in range(h):
         for widx in range(w):
-            if (d1[0][0][hidx][widx] !=0):
+#   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
+            if (d1[0][0][hidx][widx] !=0 and count >= counts and count <= counte):
+                
                 #top left
                 b[0] = widx - d3[0][0][hidx][widx]
                 b[1] = hidx - d1[0][0][hidx][widx]
@@ -58,15 +99,34 @@ def bonding_box_plane(geo_map):
                 b[2] = widx + d4[0][0][hidx][widx]
                 b[3] = hidx - d1[0][0][hidx][widx]
                 #bottom right
-                b[4] = widx + d3[0][0][hidx][widx]
-                b[5] = hidx + d1[0][0][hidx][widx]
+                b[4] = widx + d4[0][0][hidx][widx]
+                b[5] = hidx + d2[0][0][hidx][widx]
                 #bottom left
                 b[6] = widx - d3[0][0][hidx][widx]
-                b[7] = hidx + d1[0][0][hidx][widx]
-            
+                b[7] = hidx + d2[0][0][hidx][widx]
+                
+                np.where(b>0, b, 0)
+                
                 pts=np.array([[b[0], b[1]], [b[2], b[3]], [b[4], b[5]], [b[6], b[7]]], np.int32)
                 cv2.polylines(bbox, [pts], True, (0, 255,255))
-
+                
+                bb=np.array(((b[0], b[1]), (b[2], b[3]), (b[4], b[5]), (b[6], b[7])), np.int32)
+                center = (float(widx), float(hidx))                
+                
+                four_points = rotate_box(
+                    b[0], b[1],
+                    b[4], b[5],
+                    theta[0][0][hidx][widx], widx, hidx)
+                four_points=np.array(four_points).astype('int32')
+                cv2.polylines(bbox, [four_points], True, (128, 128,0))
+                print('rotate_angle =', theta[0][0][hidx][widx])
+                #rotMat = cv2.getRotationMatrix2D(center,float(theta[0][0][hidx][widx]*180/np.pi),1.0)
+                #bb_rotated = np.vstack((bb.T,np.array((1,1,1,1))))
+                #bb_rotated = np.dot(rotMat, bb_rotated).T
+                #cv2.polylines(bbox, [np.array(bb_rotated).astype('int32')], True, (128, 128,0))
+                count=count+1
+    
+    print("geo_map len =", count)
     return bbox
 
 
@@ -724,12 +784,12 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             #print("Shrink Poly", shrinked_poly)
             cv2.fillPoly(score_map, shrinked_poly, 1)
         else:
-            cv2.fillPoly(score_map, shrinked_poly, 1)
-            #Utext=str(text).upper()
-            #if Utext in table.keys(): 
-            #   cv2.fillPoly(score_map, shrinked_poly, table[Utext]+1)
-            #else:
-            #   print("Tag is not in the tabl: ", Utext  )
+            #cv2.fillPoly(score_map, shrinked_poly, 1)
+            Utext=str(text).upper()
+            cv2.fillPoly(score_map, shrinked_poly, table[Utext]+1)
+            if Utext not in table.keys(): 
+               print("Tag is not in the tabl: ", Utext  ) 
+               
 
 
         # use different color to draw poly mask
@@ -852,6 +912,19 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             geo_map[y, x, 4] = rotate_angle
         """
         gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle)
+        
+        debug=False
+        if debug:
+            print ('xy_in_poly = ', len(xy_in_poly), "rotate_angle =", rotate_angle )
+            tmp=np.expand_dims(geo_map.transpose(2,0,1), axis=0)
+            bbox=bonding_box_plane(torch.from_numpy(tmp))
+            pts=np.array(rectange, np.int32)
+            cv2.polylines(bbox, [pts], True, (0, 255,0))
+            for y, x in xy_in_poly:
+                cv2.circle(bbox, (x,y), radius=0, color=(0, 0, 255), thickness=-1)  
+            cv2.destroyAllWindows()
+            cv2.imshow('Test', bbox)
+            cv2.waitKey()
         
         #poly_idx = poly_idx + 1
         if (WC !='C'):
