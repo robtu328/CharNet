@@ -63,7 +63,7 @@ def vis(img, word_instances):
         cv2.putText(
             img_word_ins,
             '{}'.format(word_ins.text),
-            (word_bbox[0], word_bbox[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
+            (word_bbox[0].astype('int32'), word_bbox[1].astype('int32')), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
         )
     return img_word_ins
 
@@ -254,6 +254,13 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
+            debug2= True
+            if debug2:
+                img=invTrans.lib_inv_trans(images[0])
+                img_box=vis(img, word_instances[0])
+                cv2.destroyAllWindows()
+                cv2.imshow('Test', img_box)
+                cv2.waitKey()
             
             if debug == True:
                 print ("Memory check start")

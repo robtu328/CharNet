@@ -797,8 +797,13 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
         # if the poly is too small, then ignore it during training
         poly_h = min(np.linalg.norm(poly[0] - poly[3]), np.linalg.norm(poly[1] - poly[2]))
         poly_w = min(np.linalg.norm(poly[0] - poly[1]), np.linalg.norm(poly[2] - poly[3]))
+        
+        if WC == 'W':
+            bbox_min = 10
+        else:
+            bbox_min = 1
         # if min(poly_h, poly_w) < FLAGS.min_text_size:
-        if min(poly_h, poly_w) < 10:
+        if min(poly_h, poly_w) < bbox_min:
             cv2.fillPoly(training_mask, poly.astype(np.int32)[np.newaxis, :, :], 0)
         if tag:
             cv2.fillPoly(training_mask, poly.astype(np.int32)[np.newaxis, :, :], 0)
