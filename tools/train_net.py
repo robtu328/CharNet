@@ -6,8 +6,10 @@
 # This source code is licensed under the LICENSE file in the root directory of this source tree.
 
 import torch
+import cv2, os, sys
+sys.path.append(os.getcwd())
+
 from charnet.modeling.model import CharNet
-import cv2, os
 import numpy as np
 from torch import nn
 import argparse
@@ -18,7 +20,7 @@ from data.synth_dataset import SynthDataset
 from data.data_loader import DataLoader, TrainSettings
 
 from concern.config import Configurable, Config
-from data.data_utils import generate_rbox, blending_two_imgs, bonding_box_plane
+from data.data_utils import generate_rbox, blending_two_imgs, bonding_box_plane, createBlankPicture, draw_polys
 from data.data_loader import default_collate
 from torch.optim import lr_scheduler
 from tools.loss import *
@@ -67,6 +69,13 @@ def vis(img, word_instances):
         )
     return img_word_ins
 
+def drawBoxes(img, boxes, color):
+    img_word_ins = img.copy()
+    for i in range(len(boxes)):
+        pts=boxes[i][:8].reshape((-1, 2)).astype('int')
+        cv2.polylines(img_word_ins, [pts], True, (0, 255,255))
+    return img_word_ins
+        
 def drawPolys(image, poly, color):
     
     for i in range(len(poly)):
@@ -148,7 +157,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 cv2.waitKey()
             
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
-                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, valid_boxes \
+                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, ss_word_bboxes \
                     = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
                  
             
@@ -172,7 +181,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1, 0).cpu().numpy()
             pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1, 0).cpu().numpy()
             
-            if debug:
+            if debug:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
                 cv2.destroyAllWindows()
@@ -207,7 +216,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #)
             #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
             
-            debug1=False            
+            debug1=False    # Predict word/char boxes showing        
             if debug1:
                 img=invTrans.lib_inv_trans(images[0])
                 ic, ih, iw= images[0].shape
@@ -219,29 +228,29 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('Test', blend_pic)
+                cv2.imshow('bbox_gt1', blend_pic)
                 cv2.waitKey()
             
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('Test', blend_pic)
+                cv2.imshow('bbox_pd1', blend_pic)
                 cv2.waitKey()
             
                 bbox_gt_char=bonding_box_plane(geo_map_char)
                 
-                score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_mask), axis=1)
+                score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_char_mask), axis=1)
                 bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
                 bbox_gt_char1 = cv2.resize(bbox_gt_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 bbox_pd_char1 = cv2.resize(bbox_pd_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_gt_char1, 0.5, 0.0)
                 
                 cv2.destroyAllWindows()
-                cv2.imshow('Test', blend_pic)
+                cv2.imshow('bbox_gt_char1', blend_pic)
                 cv2.waitKey()
             
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_pd_char1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('Test', blend_pic)
+                cv2.imshow('bbox_pd_char1', blend_pic)
                 cv2.waitKey()
             
             
@@ -254,12 +263,24 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
-            debug2= True
+            debug2= False        # Final Predict word/char boxes showing
             if debug2:
+                #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
+                color = 0
                 img=invTrans.lib_inv_trans(images[0])
+                img_box = drawBoxes(img, ss_word_bboxes[0], color)
+                cv2.destroyAllWindows()
+                cv2.imshow('ss_word_bboxes', img_box)
+                cv2.waitKey()
+                
+                img_box = drawBoxes(img, char_bboxes[0], color)
+                cv2.destroyAllWindows()
+                cv2.imshow('char_bboxes', img_box)
+                cv2.waitKey()
+                
                 img_box=vis(img, word_instances[0])
                 cv2.destroyAllWindows()
-                cv2.imshow('Test', img_box)
+                cv2.imshow('word_instances', img_box)
                 cv2.waitKey()
             
             if debug == True:
@@ -352,7 +373,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             char_scores=None 
             polygon_chars=None
             line_chars=None
-            valid_boxes=None
+            ss_word_bboxes=None
             indexes=None
             
             if (debug==True):print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))

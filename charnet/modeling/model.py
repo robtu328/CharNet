@@ -240,7 +240,7 @@ class CharNet(nn.Module):
         #valid_boxe=None
         #ss_word_bboxe=None        
             
-        return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, valid_boxe 
+        return char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr, pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, ss_word_bboxes 
 
     def loss_cal():
         loss=1

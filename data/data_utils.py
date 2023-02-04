@@ -15,7 +15,32 @@ from shapely.geometry import Polygon
 from PIL import Image
 import warnings
 from geo_map_cython_lib import gen_geo_map
+ColorTable={'Yellow':(0, 255, 255), "Blue":(255, 0, 0), 'Green':(0, 255, 0), 'Red':(0, 0, 255)}
 
+def createBlankPicture(ih, iw):
+    bimg= np.zeros((ih, iw), dtype=np.uint8)
+    bimg=cv2.cvtColor(bimg, cv2.COLOR_GRAY2BGR)
+    return bimg
+
+def draw_box(bimg, poly, color='Yellow'):
+    h=bimg.shape[0]
+    w=bimg.shape[1]
+    
+    pts=poly.astype('int32')
+    cv2.polylines(bimg, [pts], True, ColorTable[color])
+    return bimg
+    
+def draw_polys(bimg, polys, color='Yellow'):
+
+    h=bimg.shape[0]
+    w=bimg.shape[1]
+    
+    #b= np.zeros((8), dtype=np.int32)
+    for i in range(len(polys)):
+        pts=polys[i].astype('int32')
+        cv2.polylines(bimg, [pts], True, ColorTable[color])
+
+    return bimg
 
 
 def draw_bonding_box(data ):
@@ -37,12 +62,25 @@ def rotate_box(x1, y1, x2, y2, degree, center_x, center_y):
     for point in points:
         dx = point[0] - center_x
         dy = point[1] - center_y
+        #use rad not degree
         new_x = center_x + dx * math.cos(degree) - dy * math.sin(degree)
         new_y = center_y + dx * math.sin(degree) + dy * math.cos(degree)
         new_points.append([(new_x), (new_y)])
-    return new_points
+    return np.array(new_points)
 
 
+def draw_rotated_box(bimg, center_x, center_y, d):
+    d1, d2, d3, d4, theta = d
+    
+    x1 = center_x - d3
+    y1 = center_y - d1
+    x2 = center_x + d4
+    y2 = center_y + d2
+ 
+    new_points = rotate_box(x1, y1, x2, y2, theta, center_x, center_y)
+    new_bimg=draw_box(bimg, np.array(new_points))
+    
+    return new_bimg
 
 def blending_two_imgs(main_pic, ref_pic):
     
@@ -85,7 +123,7 @@ def bonding_box_plane(geo_map):
 #    for hidx in range(10):#(h):
 #        for widx in range(10): #(w):
     counts=0
-    counte=3
+    counte=1000
     count=0
     for hidx in range(h):
         for widx in range(w):
@@ -638,7 +676,7 @@ def rectangle_from_parallelogram(poly):
 
 def sort_rectangle(poly, debug=False):
     # sort the four coordinates of the polygon, points in poly should be sorted clockwise
-    # First find the lowest point (highest point?)
+    # First find the lowest point (highest point?) points number is counter-clockwise order. 
     p_lowest = np.argmax(poly[:, 1])     
     if np.count_nonzero(poly[:, 1] == poly[p_lowest, 1]) == 2:
         # 底边平行于X轴, 那么p0为左上角
@@ -916,7 +954,7 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             # angle
             geo_map[y, x, 4] = rotate_angle
         """
-        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle)
+        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle*-1.0)
         
         debug=False
         if debug:
