@@ -661,6 +661,6 @@ class LossFunc(nn.Module):
             
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
-
-        return torch.mean(L_g.squeeze(1) * y_true_cls * training_mask) + classification_loss
+        #return torch.mean(L_g.squeeze(1) * y_true_cls * training_mask) + classification_loss
+        return torch.sum(L_g.squeeze(1) * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask) + classification_loss
 
