@@ -568,22 +568,23 @@ class LossFunc(nn.Module):
         # for details should go to https://arxiv.org/pdf/1902.09630.pdf
         # ensure predict's bbox form
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        #   d1 = Top, d2 = Right , d3 = Bottom, d4 = Left
         d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
         #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
         d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
     
         #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
 
-        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_gt = (d1_gt + d3_gt) * (d2_gt + d4_gt)
         area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
     
-        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
-        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        w_union = torch.min(d4_gt, d3_pred) + torch.min(d2_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d3_gt, d2_pred)
         I = w_union * h_union
         U = area_gt + area_pred - I
     
-        w_enclose = torch.max(d3_gt, d3_pred) + torch.max(d4_gt, d4_pred)
-        h_enclose = torch.max(d1_gt, d1_pred) + torch.max(d2_gt, d2_pred)
+        w_enclose = torch.max(d4_gt, d3_pred) + torch.max(d2_gt, d4_pred)
+        h_enclose = torch.max(d1_gt, d1_pred) + torch.max(d3_gt, d2_pred)
         area_c = w_enclose * h_enclose
 
         # calc area of Bc
@@ -609,17 +610,18 @@ class LossFunc(nn.Module):
         # for details should go to https://arxiv.org/pdf/1902.09630.pdf
         # ensure predict's bbox form
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
+        #   d1 = Top, d2 = Right , d3 = Bottom , d4 = Left
         d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
         #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
         d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
     
         #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
 
-        area_gt = (d1_gt + d2_gt) * (d3_gt + d4_gt)
+        area_gt = (d1_gt + d3_gt) * (d2_gt + d4_gt)
         area_pred = (d1_pred + d2_pred) * (d3_pred + d4_pred)
     
-        w_union = torch.min(d3_gt, d3_pred) + torch.min(d4_gt, d4_pred)
-        h_union = torch.min(d1_gt, d1_pred) + torch.min(d2_gt, d2_pred)
+        w_union = torch.min(d4_gt, d3_pred) + torch.min(d2_gt, d4_pred)
+        h_union = torch.min(d1_gt, d1_pred) + torch.min(d3_gt, d2_pred)
         I = w_union * h_union
         U = area_gt + area_pred - I
     

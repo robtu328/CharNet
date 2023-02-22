@@ -65,7 +65,7 @@ def vis(img, word_instances):
         cv2.putText(
             img_word_ins,
             '{}'.format(word_ins.text),
-            (word_bbox[0].astype('int32'), word_bbox[1].astype('int32')), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
+            (word_bbox[0].astype('int32'), word_bbox[1].astype('int32')), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
         )
     return img_word_ins
 
@@ -119,7 +119,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
     invTrans  = img_loader.dataset.processes[4]
 
-    criterion = LossFunc() 
+    criterion_w = LossFunc() 
+    criterion_c = LossFunc() 
     cmatch= char_matching(cfg)
     
     #sequence=iter(img_loader)
@@ -255,15 +256,15 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             
             
 
-            loss1 = criterion(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
-            loss2 = criterion(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
+            loss1 = criterion_w(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
+            loss2 = criterion_c(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
             
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
-            debug2= False        # Final Predict word/char boxes showing
+            debug2= True        # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
