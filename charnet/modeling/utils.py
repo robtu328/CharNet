@@ -10,7 +10,7 @@ import torch
 from torch.nn import functional as F
 import torch.nn as nn
 
-def rotate_rect(x1, y1, x2, y2, degree, center_x, center_y):
+def rotate_rect(x1, y1, x2, y2, degree, center_x, center_y):  #rectangle  counter-clock wise rotation
     points = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]
     new_points = list()
     for point in points:

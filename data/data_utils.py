@@ -15,6 +15,8 @@ from shapely.geometry import Polygon
 from PIL import Image
 import warnings
 from geo_map_cython_lib import gen_geo_map
+from charnet.modeling.utils import rotate_rect
+
 ColorTable={'Yellow':(0, 255, 255), "Blue":(255, 0, 0), 'Green':(0, 255, 0), 'Red':(0, 0, 255)}
 
 def createBlankPicture(ih, iw):
@@ -805,7 +807,8 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
     for poly_idx, (poly, tag, text) in enumerate (zip(polys, tags, texts)):
         #poly = poly_tag['points']
         #tag = poly_tag['text']
-        poly = np.array(poly)
+        poly = np.array([poly[0], poly[3], poly[2], poly[1]])
+        #poly = np.array(poly)
         tag  = np.array(tag)
     
         r = [None, None, None, None]
@@ -954,22 +957,38 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             # angle
             geo_map[y, x, 4] = rotate_angle
         """
-        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle*-1.0)
+        rotate_angle=rotate_angle*-1.0
+        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle)
+        
         
         debug=False
         if debug:
             print ('xy_in_poly = ', len(xy_in_poly), "rotate_angle =", rotate_angle )
+            mid_idx=int(len(xy_in_poly)/2)
+            y,x= xy_in_poly[mid_idx]
+            t, r, b, l, o = geo_map[y, x]
+            four_points=rotate_rect(x-l, y-t, x+r, y+b, o, x, y)
+            four_points=np.array(four_points).astype('int')
+            
             tmp=np.expand_dims(geo_map.transpose(2,0,1), axis=0)
-            bbox=bonding_box_plane(torch.from_numpy(tmp))
+            tmp1=np.zeros(tmp.shape)
+            bbox=bonding_box_plane(torch.from_numpy(tmp1))
             pts=np.array(rectange, np.int32)
             cv2.polylines(bbox, [pts], True, (0, 255,0))
-            for y, x in xy_in_poly:
-                cv2.circle(bbox, (x,y), radius=0, color=(0, 0, 255), thickness=-1)  
+            cv2.polylines(bbox, [four_points], True, (0, 255,255))
+            cv2.line(bbox,pts[0],pts[1],(255,0,0),2)
+            
+            
+            #for y, x in xy_in_poly:
+            #    cv2.circle(bbox, (x,y), radius=0, color=(0, 0, 255), thickness=-1)  
             cv2.destroyAllWindows()
             cv2.imshow('Test', bbox)
             cv2.waitKey()
+            print("pts0", pts[0], 'pts1', pts[1])
+
         
         #poly_idx = poly_idx + 1
+        
         if (WC !='C'):
             rects.append({'rect':rectange, 'rotate_angle':rotate_angle})
         else:

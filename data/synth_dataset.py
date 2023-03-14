@@ -1,6 +1,8 @@
 import functools
 import logging
 import bisect
+import random
+import pickle
 
 import torch.utils.data as data
 import cv2
@@ -57,6 +59,23 @@ class SynthDataset(data.Dataset, Configurable):
         
         self.get_all_samples(self.snumber)
         
+        self.nList=True
+        if (self.nList):
+            self.map_idx= random.sample(range(0, len(self.image_paths)), self.num_samples)
+            with open("synthrndlist.txt", 'wb') as f:
+                pickle.dump((self.map_idx), f)
+            f.close()
+        else:
+            with open("synthrndlist.txt", 'rb') as f:
+                self.map_idx = pickle.load(f)
+            f.close()
+            if len(self.map_idx) != self.num_samples:
+                print('Synthdata exist list size is not expected number (', self.num_samples, ')')
+                quit()
+        
+        self.seqList=False
+        if (self.seqList):
+            self.map_idx = list(range(0,1000))
         #data_length = self.num_samples
         self.train_s=0
         self.train_e=int(self.num_samples*8/10)
@@ -66,6 +85,8 @@ class SynthDataset(data.Dataset, Configurable):
         
         self.test_s =self.valid_e
         self.test_e =self.num_samples
+        
+        
 
     def get_all_samples(self, snumber):
         for i in range(len(self.data_dir)):
@@ -222,7 +243,7 @@ class SynthDataset(data.Dataset, Configurable):
         
     def __getitem__(self, index, retry=0):
         
-        
+        #index=5731
         if index >= self.__len__():
             index = index % self.__len__()
             
@@ -233,7 +254,8 @@ class SynthDataset(data.Dataset, Configurable):
         else:
             index_update = self.test_s + index
          
-          
+        
+        index_update = self.map_idx[index_update]
             
         data = {}
         image_path = self.image_paths[index_update]
