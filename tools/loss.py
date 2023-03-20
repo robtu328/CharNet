@@ -216,9 +216,9 @@ def keep_ce_loss(
         return torch.mean(loss)
 
 
-class char_matchingV2(nn.Module):
+class char_reg_loss(nn.Module):
     def __init__(self, cfg):
-        super(char_matching, self).__init__()
+        super(char_reg_loss, self).__init__()
         self.char_dict_reverse = {}
         self.char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
         self.num_class = len(self.char_dict)
@@ -229,143 +229,50 @@ class char_matchingV2(nn.Module):
         self.debug = False
         
         
-    def forward(self, char_bboxes, char_scores, polygon_chars, line_chars):
-    
-        
-        match_all=[]
-        loss=torch.tensor(0)
-        rec_correct=0
-        total_number=0
-        
-        if (self.debug):
-            print("loss beginning")
-            all_objects = muppy.get_objects()
-            sum1 = summary.summarize(all_objects)
-            summary.print_(sum1)
-        
-        for pic_idx in range(len(polygon_chars)):       #batch picture index
-            maxchar_score = torch.argmax(char_scores[pic_idx], 1).cpu().numpy()  # get the highest score index
-            if(len(char_scores[pic_idx])==0):print('empty char score');continue
-            
-            match_idx=np.empty(len(polygon_chars[pic_idx]))
-            match_idx[:]=None
-            for gidx in range(len(polygon_chars[pic_idx])):           #ground truth box
-                inter_area=np.zeros(len(char_bboxes[pic_idx]))
-                
-                
-                ppoly=pyclipper.scale_to_clipper(polygon_chars[pic_idx][gidx].reshape((4, 2)))
-                if ((polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][1]).all() or
-                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][2]).all() or
-                    (polygon_chars[pic_idx][gidx][0] == polygon_chars[pic_idx][gidx][3]).all() or
-                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][3]).all() or
-                    (polygon_chars[pic_idx][gidx][2] == polygon_chars[pic_idx][gidx][3]).all() or
-                    (polygon_chars[pic_idx][gidx][1] == polygon_chars[pic_idx][gidx][2]).all()):
-                    continue
-            
-                    
-                if (self.debug==True): print('PPoly', polygon_chars[pic_idx][gidx])
-                for pidx in range(len(char_bboxes[pic_idx])):           #predict box    
-                    gpoly=pyclipper.scale_to_clipper(char_bboxes[pic_idx][pidx][:8].reshape((4, 2)))
-                    gpoly1=char_bboxes[pic_idx][pidx][:8].reshape(4,2)
-                    if (self.debug==True): print('GPoly', gpoly1)
-                    if((gpoly1[0]==gpoly1[1]).all() or (gpoly1[0]==gpoly1[2]).all() or
-                       (gpoly1[0]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[3]).all() or
-                       (gpoly1[2]==gpoly1[3]).all() or (gpoly1[1]==gpoly1[2]).all()):
-                        solution=[]
-                        inter=0
-                        pc=None
-                    
-                    else:
-                        pc = pyclipper.Pyclipper()
-                        #print('PPoly', ppoly)
-                        pc.AddPath(ppoly, pyclipper.PT_CLIP, True)
-                        pc.AddPaths([gpoly], pyclipper.PT_SUBJECT, True)
-                        solution = pc.Execute(pyclipper.CT_INTERSECTION)
-                    
-                    
-                    if len(solution) == 0:
-                        inter = 0
-                        inter_area[pidx]=inter
-                    else:
-                        inter = pyclipper.scale_from_clipper(           #IOU calculation
-                            pyclipper.scale_from_clipper(pyclipper.Area(solution[0])))
-                        
-                        inter_area[pidx]=inter
-                     
-                gmax_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
-
-                if(inter_area[gmax_idx] != 0):
-                    match_idx[gidx] = gmax_idx
-            
-                    
-            if(self.debug):print (match_idx)
-            pred_line=[]
-            pred_number=[]
-            for gidx in range(len(polygon_chars[pic_idx])):
-                pidx_char = None
-                if(not np.isnan(match_idx[gidx])):
-                    if(self.debug):
-                        print('gidx = ', gidx, "match_idx[gidx] = ", match_idx[gidx])
-                        print("Maxcharscore ", maxchar_score[match_idx[gidx].astype('uint')] )
-                    pred_line_chars= self.char_dict[maxchar_score[match_idx[gidx].astype('uint')].astype('uint')]
-                    golden_char=line_chars[pic_idx][gidx]
-                    pred_line.append(pred_line_chars)
-                    pred_number.append(maxchar_score[match_idx[gidx].astype('int')].astype('int'))
-                else:
-                    pred_line.append(" ")
-                    pred_number.append(-1)
-            
-            golden_class=[]
-            for k in line_chars[pic_idx]:
-                golden_class.append(self.char_dict_reverse[k.upper()])     
-            golden_class_onehot=torch.eye(self.num_class)[golden_class].cuda()
-            
-            pred_class_score=char_scores[pic_idx][match_idx.astype('uint8').tolist()]
-            
-            indices=np.where (np.array(pred_number) == -1)[0]
-            pred_class_score[indices] = 0
-            loss=loss + self.loss(pred_class_score.cuda(), golden_class_onehot)
-            for test, gold in zip(golden_class, pred_number):
-                total_number = total_number +1
-                if (test == gold):
-                   rec_correct = rec_correct + 1
-                   
-                   
-            #pred_class_onehot = torch.eye(self.num_class)[pred_number]
-            #pred_class_onehot[indices] = 0
-            #match_all.append(match_idx)
-            match_idx=None
-            pred_line=None 
-            pred_number=None 
-            inter_area=None
-            gmax_idx=None
-            pc=None
-            golden_class=None
-            dmaxchar_score=None
-
-        
-#        if 'golden_class_onehot' in locals():
-#            del golden_class_onehot
-#            del pred_class_score
-#        gc.collect()
-#        torch.cuda.empty_cache()
-        
-        loss=loss/len(polygon_chars)
-        #loss=loss/self.num_class
-        if(self.debug):
-            print("polygon_chars ref count", sys.getrefcount(polygon_chars))
-            print("loss ref count", sys.getrefcount(loss))
-            print("loss end")
-        
-            all_objects = muppy.get_objects()
-            sum1 = summary.summarize(all_objects)
-            summary.print_(sum1)
-        
-#        if(self.debug):print(match_all)
-#        del match_all
-           
+    def forward(self, word_instances, polygon_chars, line_chars):
        
-        return loss, total_number, rec_correct
+        total_number=0
+        rec_correct=0
+        loss=0
+        for pic_idx in range(len(polygon_chars)):
+            #print('pic_idx=', pic_idx)
+            for wrd_idx in range(len(word_instances[pic_idx])):
+                pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
+                pctxts=word_instances[pic_idx][wrd_idx].text
+                for char_idx in range(len(pcboxs)):
+                    #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
+                    pcbox = pcboxs[char_idx]
+                    pctxt = pctxts[char_idx]
+                    char_ppolys = Polygon([(pcbox[0], pcbox[1]), (pcbox[2], pcbox[3]), (pcbox[4], pcbox[5]), (pcbox[6], pcbox[7])])
+                    
+                    self.debug = False
+                    if self.debug == True:
+                        print('ppolys = ', char_ppolys)
+                    
+                    if (len(polygon_chars[pic_idx]) > 0):
+                        inter_area=np.zeros(len(polygon_chars[pic_idx]))
+                        for gchar_idx in range(len(polygon_chars[pic_idx])):
+                            gcbox = polygon_chars[pic_idx][gchar_idx].astype('int')
+                        
+                            char_gpolys = Polygon([gcbox[0], gcbox[1], gcbox[2], gcbox[3]])
+                        
+                            if self.debug == True:
+                                print('gpolys = ', char_gpolys)
+                                
+                            inter_area[gchar_idx] = char_ppolys.intersection(char_gpolys).area             
+                    
+                        gmatch_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
+
+                        if(inter_area[gmatch_idx] != 0):
+                            gctxt= line_chars[pic_idx][gmatch_idx]
+                            if(pctxt == line_chars[pic_idx][gmatch_idx].upper()):
+                                rec_correct = rec_correct + 1
+                            
+                        
+                
+            total_number = total_number +  len(line_chars[pic_idx])  
+       
+        return total_number, rec_correct
 #        return 0.1, 2, 1
 
 

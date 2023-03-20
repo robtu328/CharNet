@@ -122,6 +122,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     criterion_w = LossFunc() 
     criterion_c = LossFunc() 
     cmatch= char_matching(cfg)
+    cregloss=char_reg_loss(cfg)
     
     #sequence=iter(img_loader)
     #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
@@ -264,7 +265,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
-            debug2= True        # Final Predict word/char boxes showing
+            debug2= False      # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -290,10 +291,10 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 sum1 = summary.summarize(all_objects)
                 summary.print_(sum1)
             
-            loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            
+            #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
+            number1, correct1 =  cregloss(word_instances, polygon_chars, line_chars)
             loss3=0
-            #loss4=0 
+            loss4=0 
             #number=1
             #correct=0
             
@@ -305,8 +306,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 print ("Memory check end")
             
             
-            total_number = total_number+number
-            correct_number=correct_number+correct 
+            total_number = total_number+number1
+            correct_number=correct_number+correct1
             
             #loss1_total = loss1_total + loss1
             #loss2_total = loss2_total + loss2
@@ -454,7 +455,7 @@ def validate_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
 
     criterion = LossFunc()
     cmatch= char_matching(cfg)
-    
+    cregloss=char_reg_loss(cfg)
     #sequence=iter(img_loader)
     #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
     #batch=next(sequence)

@@ -53,12 +53,13 @@ def load_char_rev_dict(path, seperator=chr(31)):
 
 
 class WordInstance:
-    def __init__(self, word_bbox, word_bbox_score, text, text_score, char_scores):
+    def __init__(self, word_bbox, word_bbox_score, text, text_score, char_scores, char_bboxes):
         self.word_bbox = word_bbox
         self.word_bbox_score = word_bbox_score
         self.text = text
         self.text_score = text_score
         self.char_scores = char_scores
+        self.char_bboxes = char_bboxes
 
 
 class OrientedTextPostProcessing(nn.Module):
@@ -100,8 +101,22 @@ class OrientedTextPostProcessing(nn.Module):
             ss_word_bboxes, char_bboxes,
             char_scores.clone().detach().cpu().numpy(), self.char_dict
         )
-
-        word_instances = self.filter_word_instances(word_instances, self.lexicon)
+        
+        for word_idx in range(len(word_instances)):
+            if(len(word_instances[word_idx].char_bboxes) != len(word_instances[word_idx].text)):
+                print('Before filter bbox len (', len(word_instances[word_idx].char_bboxes),') != text len (',len(word_instances[word_idx].text),')')
+        
+        word_instances1 = self.filter_word_instances(word_instances, self.lexicon)
+        
+        #print ("New word length = ",len(word_instances1), "Old word length", len(word_instances))
+        #for word_idx in range(len(word_instances1)):
+        #    print('New text = ', word_instances1[word_idx].text, 'Old text =', word_instances[word_idx].text)
+        #    
+        #    if(len(word_instances1[word_idx].char_bboxes) == len(word_instances1[word_idx].text)):
+        #        
+        #        word_instances[word_idx].text = word_instances1[word_idx].text
+        #    else:    
+        #        print('After filter bbox len (', len(word_instances[word_idx].char_bboxes),') != text len (',len(word_instances[word_idx].text),')')
 
         return char_bboxes, char_scores, word_instances, valid_boxes, ss_word_bboxes
 
@@ -418,7 +433,7 @@ class OrientedTextPostProcessing(nn.Module):
         if num_word == 0:
             print("No word box")
             return word_instances
-        for idx in range(num_char):
+        for idx in range(num_char):             #check every char best match to word box
             char_bbox = char_bboxes[idx]
             char_poly = char_polys[idx]
             match_scores = np.zeros((num_word,), dtype=np.float32)
@@ -427,10 +442,10 @@ class OrientedTextPostProcessing(nn.Module):
                 word_poly = word_polys[jdx]
                 match_scores[jdx] = match(word_bbox, word_poly, char_bbox, char_poly)
             jdx = np.argmax(match_scores)
-            if match_scores[jdx] > 0:
+            if match_scores[jdx] > 0:           #word jdx contain char idx
                 word_chars[jdx].append(idx)
-        for idx in range(num_word):
-            char_indices = word_chars[idx]
+        for idx in range(num_word):            
+            char_indices = word_chars[idx]      #take out word[idx]'s match chars
             if len(char_indices) > 0:
                 text, text_score, tmp_char_scores = recog(
                     word_bboxes[idx],
@@ -441,6 +456,7 @@ class OrientedTextPostProcessing(nn.Module):
                     word_bboxes[idx],
                     word_bbox_scores[idx],
                     text, text_score,
-                    tmp_char_scores
+                    tmp_char_scores,
+                    char_bboxes[char_indices]
                 ))
         return word_instances
