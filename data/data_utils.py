@@ -928,10 +928,13 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             if t==[]:
                 print("Nulll Poly Area")
             elif any(elem is None for elem in t):
-                print("None in t")        
+                print("None in t") 
+            elif any(len(elem) !=2  for elem in t):
+                print('len < 2 ', t)
+                exit()
             #print ("Index (", idx,")", t)
             idx=idx+1
-        areas = [Polygon(t).area if t!=[] and all(elem is not None for elem in t) else 65536.0 for t in fitted_parallelograms]
+        areas = [Polygon(t).area if t!=[] and all(elem is not None for elem in t) else 3e8 for t in fitted_parallelograms]
         parallelogram = np.array(fitted_parallelograms[np.argmin(areas)][:-1], dtype=np.float32)
         # sort thie polygon
         parallelogram_coord_sum = np.sum(parallelogram, axis=1)

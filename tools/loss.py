@@ -239,6 +239,9 @@ class char_reg_loss(nn.Module):
             for wrd_idx in range(len(word_instances[pic_idx])):
                 pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
                 pctxts=word_instances[pic_idx][wrd_idx].text
+                if (len(pcboxs) != len(pctxts)):
+                    print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+
                 for char_idx in range(len(pcboxs)):
                     #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
                     pcbox = pcboxs[char_idx]
