@@ -203,7 +203,7 @@ def keep_ce_loss(
             #keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
             #    oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
             #    )
-            print("Char keep len = ", len(char_keep_rows))
+            #print("Char keep len = ", len(char_keep_rows))
         
       
             char_scores_pic.append(char_scores)
@@ -261,8 +261,14 @@ class char_reg_loss(nn.Module):
                         
                             if self.debug == True:
                                 print('gpolys = ', char_gpolys)
-                                
-                            inter_area[gchar_idx] = char_ppolys.intersection(char_gpolys).area             
+                            
+                            if char_ppolys.is_valid and char_gpolys.is_valid:
+                                inter_area[gchar_idx] = char_ppolys.intersection(char_gpolys).area
+                            else:
+                                if not char_ppolys.is_valid:
+                                    print("invalid_ppoly: ", char_ppolys)
+                                if not char_gpolys.is_valid:
+                                    print("invalid_gpoly: ", char_gpolys)
                     
                         gmatch_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
 
