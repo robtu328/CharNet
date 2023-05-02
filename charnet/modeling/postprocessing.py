@@ -106,7 +106,7 @@ class OrientedTextPostProcessing(nn.Module):
             if(len(word_instances[word_idx].char_bboxes) != len(word_instances[word_idx].text)):
                 print('Before filter bbox len (', len(word_instances[word_idx].char_bboxes),') != text len (',len(word_instances[word_idx].text),')')
         
-        word_instances1 = self.filter_word_instances(word_instances, self.lexicon)
+        #word_instances1 = self.filter_word_instances(word_instances, self.lexicon)
         
         #print ("New word length = ",len(word_instances1), "Old word length", len(word_instances))
         #for word_idx in range(len(word_instances1)):
@@ -248,7 +248,7 @@ class OrientedTextPostProcessing(nn.Module):
         keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
             oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
         )
-        print("Char keep len = ", len(keep))
+        #print("Char keep len = ", len(keep))
         new_oriented_char_bboxes = new_oriented_char_bboxes[keep]
         new_oriented_char_bboxes[:, :8] = new_oriented_char_bboxes[:, :8].round()
         new_oriented_char_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, new_oriented_char_bboxes[:, 0:8:2]))
@@ -306,7 +306,7 @@ class OrientedTextPostProcessing(nn.Module):
             #keep, new_oriented_char_bboxes, new_char_scores = nms_with_char_cls_torch(
             #    oriented_char_bboxes, char_scores, self.char_nms_iou_thresh, num_neig=1
             #    )
-            print("Char keep len = ", len(char_keep_rows))
+            #print("Char keep len = ", len(char_keep_rows))
         
             oriented_char_bboxes[:, :8] = oriented_char_bboxes[:, :8].round()
             oriented_char_bboxes[:, 0:8:2] = np.maximum(0, np.minimum(W-1, oriented_char_bboxes[:, 0:8:2]))

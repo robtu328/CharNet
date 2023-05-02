@@ -233,6 +233,8 @@ class char_reg_loss(nn.Module):
        
         total_number=0
         rec_correct=0
+        cnt_dict_showup=np.zeros(len(self.char_dict))
+        cnt_dict_correct=np.zeros(len(self.char_dict))
         loss=0
         for pic_idx in range(len(polygon_chars)):
             #print('pic_idx=', pic_idx)
@@ -274,14 +276,16 @@ class char_reg_loss(nn.Module):
 
                         if(inter_area[gmatch_idx] != 0):
                             gctxt= line_chars[pic_idx][gmatch_idx]
+                            dict_idx = self.char_dict_reverse[gctxt.upper()]
                             if(pctxt == line_chars[pic_idx][gmatch_idx].upper()):
                                 rec_correct = rec_correct + 1
-                            
+                                cnt_dict_correct[dict_idx] = cnt_dict_correct[dict_idx] + 1
+                            cnt_dict_showup[dict_idx] = cnt_dict_showup[dict_idx] + 1
                         
                 
             total_number = total_number +  len(line_chars[pic_idx])  
        
-        return total_number, rec_correct
+        return total_number, rec_correct, cnt_dict_showup, cnt_dict_correct
 #        return 0.1, 2, 1
 
 

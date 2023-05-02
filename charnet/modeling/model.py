@@ -8,7 +8,8 @@
 import torch
 from torch import nn
 from charnet.modeling.backbone.resnet import resnet50
-from charnet.modeling.backbone.hourglass import hourglass88
+from charnet.modeling.backbone.hourglassGcn import hourglass88
+#from charnet.modeling.backbone.hourglass import hourglass88
 from charnet.modeling.backbone.decoder import Decoder
 from collections import OrderedDict
 from torch.functional import F
@@ -17,6 +18,7 @@ import torchvision.transforms as T
 from .postprocessing import OrientedTextPostProcessing
 from charnet.config import cfg
 import numpy as np
+from interimage.intern_image import InternImage
 
 
 def _conv3x3_bn_relu(in_channels, out_channels, dilation=1):
@@ -144,6 +146,8 @@ class CharNet(nn.Module):
         self.post_processing = OrientedTextPostProcessing(**args)
 
         self.transform = self.build_transform()
+        #self.interImage = InternImage(channels=256, depths=[4, 4, 18, 4], groups=[4, 8, 16, 32],layer_scale=1.0)
+        #print(self.interImage)
 
     def forward(self, im, im_scale_w, im_scale_h, original_im_w, original_im_h, images_np):
         #im = self.transform(im).cuda()
@@ -154,8 +158,16 @@ class CharNet(nn.Module):
         
         #myconv = nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False)
         #myconv.cuda()
+        #im1=im.clone()
         features = self.backbone(im)
+        #features1 = self.interImage(im)
 
+        #Internet
+        #pred_word_fg, pred_word_tblr, pred_word_orient = self.word_detector(features[0])
+        #pred_char_fg, pred_char_tblr, pred_char_orient = self.char_detector(features[0])
+        #recognition_results = self.char_recognizer(features[0])
+        
+        #hourglass
         pred_word_fg, pred_word_tblr, pred_word_orient = self.word_detector(features)
         pred_char_fg, pred_char_tblr, pred_char_orient = self.char_detector(features)
         recognition_results = self.char_recognizer(features)

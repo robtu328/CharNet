@@ -47,11 +47,14 @@ define:
           augmenter_args:
               - ['Fliplr', 0.5]
               #- {'cls': 'Affine', 'rotate': [0, 0]}
-              #- {'cls': 'Affine', 'rotate': [-5, 5]}
+              - {'cls': 'Affine', 'rotate': [-5, 5]}
+              # Resize each image’s height to 50-75% of its original size and width to either 16px or 32px or 64px:
+              # aug = iaa.Resize({"height": (0.5, 0.75), "width": [16, 32, 64]})
               - ['Resize', [640, 640]]
               #- ['Resize', [0.5, 3.0]]
           only_resize: False
-          keep_ratio: False
+          #keep_ratio: False
+          keep_ratio: True
         - class: RandomCropData
           #size: [640, 640]
           size: [640, 640]
@@ -68,7 +71,8 @@ define:
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
-    snumber: 1000
+    #snumber: 1000
+    #snumber: 10000
 
   - name: validate_data
     class: ImageDataset
