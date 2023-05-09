@@ -8,7 +8,10 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from interimage.ops_dcnv3 import modules as opsm
+from interimage.intern_image import StemLayer
 
+#from interimage.intern_image import InternImage
 
 _norm_func = lambda num_features: nn.BatchNorm2d(num_features, eps=1e-5)
 
@@ -38,6 +41,8 @@ class Residual(nn.Module):
             _norm_func(out_channels),
             nn.ReLU()
         )
+        
+        
         self.conv_2 = nn.Sequential(
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, stride=1, bias=False),
             _norm_func(out_channels)
@@ -82,11 +87,15 @@ class HourGlassBlock(nn.Module):
 class HourGlassNet(nn.Module):
     def __init__(self, n, channels, blocks):
         super(HourGlassNet, self).__init__()
+        
+        core_op=getattr(opsm, 'DCNv3_pytorch')
+        
+        
         self.pre = nn.Sequential(
-            nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False),
+            nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False), #channels = 128
             _norm_func(128),
             nn.ReLU(),
-            Residual(128, 256, stride=2)
+            Residual(128, 256, stride=2)    #channels in= 128, channels out=256
         )
         hourglass_blocks = []
         for _ in range(2):
@@ -99,5 +108,43 @@ class HourGlassNet(nn.Module):
         return self.hourglass_blocks(self.pre(x))
 
 
+class HourGlassNetGCN(nn.Module):
+    def __init__(self, n, channels, blocks):
+        super(HourGlassNetGCN, self).__init__()
+        
+        core_op=getattr(opsm, 'DCNv3_pytorch')
+        
+        
+        self.pre = nn.Sequential(
+            StemLayer(in_chans=3, out_chans=128, act_layer='GELU', norm_layer='LN', order='channels_first'),
+            core_op( channels=128, kernel_size=3 , stride=1, pad=1,dilation=1,
+                     group=4, offset_scale=1.0, act_layer='GELU', norm_layer='LN',
+                     dw_kernel_size=None, center_feature_scale=False, imgFmt='CHW'),
+            Residual(128, 256, stride=1)    #channels in= 128, channels out=256
+        )
+        
+        #self.pre = nn.Sequential(
+        #    nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False), #channels = 128
+        #    _norm_func(128),
+        #    nn.ReLU(),
+        #    Residual(128, 256, stride=2)    #channels in= 128, channels out=256
+        #)
+        hourglass_blocks = []
+        for _ in range(2):
+            hourglass_blocks.append(
+                HourGlassBlock(n, channels, blocks)
+            )
+        self.hourglass_blocks = nn.Sequential(*hourglass_blocks)
+
+    def forward(self, x):
+        return self.hourglass_blocks(self.pre(x))
+
+
+
+
+
 def hourglass88():
     return HourGlassNet(3, [256, 256, 256, 512], [2, 2, 2, 2])
+
+def hourglass88GCN():
+    return HourGlassNetGCN(3, [256, 256, 256, 512], [2, 2, 2, 2])
