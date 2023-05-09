@@ -16,6 +16,7 @@ from data.data_utils import generate_rbox
 
 def preprocess_words(word_ar):
     words = []
+    #print("word_ar = ", word_ar)
     for ii in range(np.shape(word_ar)[0]):
         s = word_ar[ii]
         start = 0

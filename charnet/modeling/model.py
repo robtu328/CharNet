@@ -8,8 +8,8 @@
 import torch
 from torch import nn
 from charnet.modeling.backbone.resnet import resnet50
-from charnet.modeling.backbone.hourglassGcn import hourglass88
-#from charnet.modeling.backbone.hourglass import hourglass88
+#from charnet.modeling.backbone.hourglassGcn import hourglass88
+from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
 from charnet.modeling.backbone.decoder import Decoder
 from collections import OrderedDict
 from torch.functional import F
@@ -113,7 +113,8 @@ class CharRecognizer(nn.Module):
 
 
 class CharNet(nn.Module):
-    def __init__(self, backbone=hourglass88()):
+#    def __init__(self, backbone=hourglass88()):
+    def __init__(self, backbone=hourglass88GCN()):
         super(CharNet, self).__init__()
         self.backbone = backbone
         decoder_channels = 256

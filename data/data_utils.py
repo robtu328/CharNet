@@ -111,7 +111,7 @@ def bonding_box_plane(geo_map):
         d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
     else:
         d1, d2, d3, d4 = torch.split(geo_map, 1, 1)
-        theta = np.zeros((1, 1, h, w), dtype=np.float)
+        theta = np.zeros((1, 1, h, w), dtype=np.float32)
         
     d1=d1.cpu().detach().numpy()
     d2=d2.cpu().detach().numpy()
