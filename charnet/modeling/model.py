@@ -8,8 +8,9 @@
 import torch
 from torch import nn
 from charnet.modeling.backbone.resnet import resnet50
-#from charnet.modeling.backbone.hourglassGcn import hourglass88
+#from charnet.modeling.backbone.hourglassGCN import hourglass88
 from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
+#from charnet.modeling.backbone.hourglass import hourglass88
 from charnet.modeling.backbone.decoder import Decoder
 from collections import OrderedDict
 from torch.functional import F
@@ -18,7 +19,7 @@ import torchvision.transforms as T
 from .postprocessing import OrientedTextPostProcessing
 from charnet.config import cfg
 import numpy as np
-from interimage.intern_image import InternImage
+#from interimage.intern_image import InternImage
 
 
 def _conv3x3_bn_relu(in_channels, out_channels, dilation=1):
@@ -113,8 +114,9 @@ class CharRecognizer(nn.Module):
 
 
 class CharNet(nn.Module):
-#    def __init__(self, backbone=hourglass88()):
-    def __init__(self, backbone=hourglass88GCN()):
+    def __init__(self, backbone=hourglass88()):
+    #def __init__(self, backbone=hourglass88GCN()):
+
         super(CharNet, self).__init__()
         self.backbone = backbone
         decoder_channels = 256

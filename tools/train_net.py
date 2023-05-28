@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from data.image_dataset import ImageDataset
 from data.synth_dataset import SynthDataset
 from data.data_loader import DataLoader, TrainSettings
-from interimage.intern_image import InternImage
+#from interimage.intern_image import InternImage
 
 
 from concern.config import Configurable, Config
@@ -155,14 +155,15 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         debug = False
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
             if debug:
+                print("Image Path", img_loader.dataset.image_paths[indexes[0]])
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
                 blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_img)
+                cv2.imshow("score_map", blend_img)
                 cv2.waitKey()
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_char_img)
+                cv2.imshow("score_map_char", blend_char_img)
                 cv2.waitKey()
             #image format : CHW
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
@@ -500,6 +501,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
 
         
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
+            debug=False
             if debug:
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
@@ -1013,8 +1015,9 @@ if __name__ == '__main__':
     cmd_in.update(is_train=True)
     train_cfg=Trainsetting_conf['Experiment']['train']
     train_cfg.update(cmd=cmd_in)
- 
-    train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
+    
+    #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
+    train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)
