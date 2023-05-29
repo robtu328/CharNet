@@ -97,7 +97,7 @@ def blending_two_imgs(main_pic, ref_pic):
     test=ref_pic1*128
     test2=cv2.cvtColor(test, cv2.COLOR_GRAY2BGR)
 #beta = ( 1.0 - alpha );
-    blend_pic=cv2.addWeighted( main_pic, 0.5, test2, 0.5, 0.0)
+    blend_pic=cv2.addWeighted( main_pic, 0.3, test2, 0.7, 0.0)
 
     return blend_pic
 
@@ -111,7 +111,7 @@ def bonding_box_plane(geo_map):
         d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
     else:
         d1, d2, d3, d4 = torch.split(geo_map, 1, 1)
-        theta = np.zeros((1, 1, h, w), dtype=np.float32)
+        theta = np.zeros((1, 1, h, w), dtype=np.float)
         
     d1=d1.cpu().detach().numpy()
     d2=d2.cpu().detach().numpy()
@@ -997,7 +997,12 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
         else:
             rects.append({'rect':rectange, 'rotate_angle':0})
         #print (geo_map)
-
+    debug1=False
+    if debug1:    
+        test2=score_map*128
+        test3=cv2.cvtColor(test2, cv2.COLOR_GRAY2BGR)
+        cv2.imshow("score_map", test3)
+        cv2.waitKey()
     ###sum up
     # score_map , in shrinked poly is 1
     # geo_map, corresponding to score map

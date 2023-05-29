@@ -7,6 +7,7 @@
 
 import torch
 import cv2, os, sys
+import math
 sys.path.append(os.getcwd())
 
 from charnet.modeling.model import CharNet
@@ -125,7 +126,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     criterion_w = LossFunc() 
     criterion_c = LossFunc() 
     cmatch= char_matching(cfg)
-    cregloss=char_reg_loss(cfg)
+    #cregloss=char_reg_loss(cfg)
+    cregloss=char_reg_lossV2(cfg)
     char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
     
     #sequence=iter(img_loader)
@@ -152,13 +154,15 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         cnt_dict_showup = np.zeros(len(char_dict))
         cnt_dict_correct = np.zeros(len(char_dict))
         
-        debug = False
+        debug4 = False
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
-            if debug:
+            if debug4:
                 print("Image Path", img_loader.dataset.image_paths[indexes[0]])
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
-                blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
+                #blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
+                score_map_char_mask=torch.where(score_map_char> 0, 1, 0)
+                blend_char_img=blending_two_imgs(img, score_map_char_mask[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
                 cv2.imshow("score_map", blend_img)
                 cv2.waitKey()
@@ -191,7 +195,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1, 0).cpu().numpy()
             pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1, 0).cpu().numpy()
             
-            if debug:  # Predict word/char classes showing 
+            debug3=False
+            if debug3:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
                 cv2.destroyAllWindows()
@@ -326,7 +331,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #loss2_total = loss2_total + loss2
             #loss3_total = loss3_total + loss3
             #loss4_total = loss4_total + loss4
-            
+            if (math.isnan(loss1)):
+                print ("loss1 is nan")
             weighted1=0.3
             weighted2=0.3
             weighted3=0.4
@@ -507,10 +513,12 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
                 blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_img)
+                cv2.imshow("score_map", blend_img)
                 cv2.waitKey()
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_char_img)
+                score_map_char_mask=torch.where(score_map_char> 0, 1, 0)
+                cv2.imshow("score_map_char", score_map_char_mask)
+                #cv2.imshow("test", blend_char_img)
                 cv2.waitKey()
             #image format : CHW
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\

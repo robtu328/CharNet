@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from data.image_dataset import ImageDataset
 from data.synth_dataset import SynthDataset
 from data.data_loader import DataLoader, TrainSettings
-from interimage.intern_image import InternImage
+#from interimage.intern_image import InternImage
 
 
 from concern.config import Configurable, Config
@@ -464,7 +464,8 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
     charnet.eval()
     charnet.cuda()
     params=params_gen(charnet)
-    img_loader.dataset.mode == 'valid' 
+    #img_loader.dataset.mode = 'valid' 
+    img_loader.dataset.mode = 'train' 
 
 
     
@@ -474,6 +475,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
     criterion_c = LossFunc() 
     cmatch= char_matching(cfg)
     cregloss=char_reg_loss(cfg)
+    #cregloss=char_reg_lossV2(cfg)
     char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
 
 
@@ -788,7 +790,8 @@ if __name__ == '__main__':
     train_cfg=Trainsetting_conf['Experiment']['train']
     train_cfg.update(cmd=cmd_in)
  
-    train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
+    train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)

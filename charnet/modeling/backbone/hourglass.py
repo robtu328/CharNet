@@ -9,11 +9,101 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from interimage.ops_dcnv3 import modules as opsm
-from interimage.intern_image import StemLayer
+#from interimage.intern_image import StemLayer
 
 #from interimage.intern_image import InternImage
 
 _norm_func = lambda num_features: nn.BatchNorm2d(num_features, eps=1e-5)
+
+
+class to_channels_first(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x.permute(0, 3, 1, 2)
+
+class to_channels_last(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x.permute(0, 2, 3, 1)
+
+def build_norm_layer(dim,
+                     norm_layer,
+                     in_format='channels_last',
+                     out_format='channels_last',
+                     eps=1e-6):
+    layers = []
+    if norm_layer == 'BN':
+        if in_format == 'channels_last':
+            layers.append(to_channels_first())
+        layers.append(nn.BatchNorm2d(dim))
+        if out_format == 'channels_last':
+            layers.append(to_channels_last())
+    elif norm_layer == 'LN':
+        if in_format == 'channels_first':
+            layers.append(to_channels_last())
+        layers.append(nn.LayerNorm(dim, eps=eps))
+        if out_format == 'channels_first':
+            layers.append(to_channels_first())
+    else:
+        raise NotImplementedError(
+            f'build_norm_layer does not support {norm_layer}')
+    return nn.Sequential(*layers)
+
+def build_act_layer(act_layer):
+    if act_layer == 'ReLU':
+        return nn.ReLU(inplace=True)
+    elif act_layer == 'SiLU':
+        return nn.SiLU(inplace=True)
+    elif act_layer == 'GELU':
+        return nn.GELU()
+
+    raise NotImplementedError(f'build_act_layer does not support {act_layer}')
+
+class StemLayer(nn.Module):
+    r""" Stem layer of InternImage
+    Args:
+        in_chans (int): number of input channels
+        out_chans (int): number of output channels
+        act_layer (str): activation layer
+        norm_layer (str): normalization layer
+    """
+
+    def __init__(self,
+                 in_chans=3,
+                 out_chans=96,
+                 act_layer='GELU',
+                 norm_layer='BN',
+                 order='channels_last'):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_chans,
+                               out_chans // 2,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1)
+        self.norm1 = build_norm_layer(out_chans // 2, norm_layer,
+                                      'channels_first', 'channels_first')
+        self.act = build_act_layer(act_layer)
+        self.conv2 = nn.Conv2d(out_chans // 2,
+                               out_chans,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1)
+        self.norm2 = build_norm_layer(out_chans, norm_layer, 'channels_first',
+                                      order)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.norm1(x)
+        x = self.act(x)
+        x = self.conv2(x)
+        x = self.norm2(x)
+        return x
 
 
 def _make_layer(in_channels, out_channels, num_blocks, **kwargs):

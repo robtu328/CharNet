@@ -238,13 +238,14 @@ class char_reg_loss(nn.Module):
         loss=0
         for pic_idx in range(len(polygon_chars)):
             #print('pic_idx=', pic_idx)
-            for wrd_idx in range(len(word_instances[pic_idx])):
+            for wrd_idx in range(len(word_instances[pic_idx])):     #Predit word index
                 pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
                 pctxts=word_instances[pic_idx][wrd_idx].text
                 if (len(pcboxs) != len(pctxts)):
                     print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+                    sys.exit()
 
-                for char_idx in range(len(pcboxs)):
+                for char_idx in range(len(pcboxs)): #pred char box within word
                     #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
                     pcbox = pcboxs[char_idx]
                     pctxt = pctxts[char_idx]
@@ -256,7 +257,7 @@ class char_reg_loss(nn.Module):
                     
                     if (len(polygon_chars[pic_idx]) > 0):
                         inter_area=np.zeros(len(polygon_chars[pic_idx]))
-                        for gchar_idx in range(len(polygon_chars[pic_idx])):
+                        for gchar_idx in range(len(polygon_chars[pic_idx])): # ground truth char index in a pictures
                             gcbox = polygon_chars[pic_idx][gchar_idx].astype('int')
                         
                             char_gpolys = Polygon([gcbox[0], gcbox[1], gcbox[2], gcbox[3]])
@@ -288,6 +289,105 @@ class char_reg_loss(nn.Module):
         return total_number, rec_correct, cnt_dict_showup, cnt_dict_correct
 #        return 0.1, 2, 1
 
+class char_reg_lossV2(nn.Module):
+    def __init__(self, cfg):
+        super(char_reg_lossV2, self).__init__()
+        self.char_dict_reverse = {}
+        self.char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
+        self.num_class = len(self.char_dict)
+        for k, v in self.char_dict.items():
+            self.char_dict_reverse[v] = k 
+        #self.loss = nn.CrossEntropyLoss(reduction='sum')
+        self.loss = nn.CrossEntropyLoss()
+        self.debug = False
+        
+        
+    def forward(self, word_instances, polygon_chars, line_chars):
+       
+        total_number=0
+        rec_correct=0
+        cnt_dict_showup=np.zeros(len(self.char_dict))
+        cnt_dict_correct=np.zeros(len(self.char_dict))
+        loss=0
+        
+        for pic_idx in range(len(polygon_chars)):
+            #print('pic_idx=', pic_idx)
+            leng=0
+            texts_all=""
+            for ltmp in word_instances[pic_idx]:leng=leng+len(ltmp.text);texts_all=texts_all+ltmp.text
+            total_number = total_number +  leng
+            pred_used=np.zeros(leng)
+            
+            if (len(polygon_chars[pic_idx]) > 0): #If ground truth char box is not empty, else path required. 
+                
+                
+                for gchar_idx in range(len(polygon_chars[pic_idx])): # ground truth char index in a pictures
+                    gcbox = polygon_chars[pic_idx][gchar_idx].astype('int')
+                    gctxt= line_chars[pic_idx][gchar_idx]
+                        
+                    char_gpolys = Polygon([gcbox[0], gcbox[1], gcbox[2], gcbox[3]]) #Ground truth Poly
+                    if self.debug == True:
+                        print('gpolys = ', char_gpolys)                        
+                        
+                    text_base=0
+                    inter_area=np.zeros(leng)
+                    
+
+                    for wrd_idx in range(len(word_instances[pic_idx])):     #Predit word index
+                        pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
+                        pctxts=word_instances[pic_idx][wrd_idx].text
+                        if (len(pcboxs) != len(pctxts)):
+                            print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+                            sys.exit()
+
+                        for char_idx in range(len(pcboxs)): #pred char box within word
+                            #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
+                            pcbox = pcboxs[char_idx]
+                            pctxt = pctxts[char_idx]
+                            char_ppolys = Polygon([(pcbox[0], pcbox[1]), (pcbox[2], pcbox[3]), (pcbox[4], pcbox[5]), (pcbox[6], pcbox[7])])
+                    
+                            self.debug = False
+                            if self.debug == True:
+                                print('ppolys = ', char_ppolys)                   
+
+                            
+                            if char_ppolys.is_valid and char_gpolys.is_valid:
+                                inter_area[text_base+char_idx] = char_ppolys.intersection(char_gpolys).area
+                            else:
+                                if not char_ppolys.is_valid:
+                                    print("invalid_ppoly: ", char_ppolys)
+                                if not char_gpolys.is_valid:
+                                    print("invalid_gpoly: ", char_gpolys)
+                                sys.exit()
+                        text_base=text_base+len(word_instances[pic_idx][wrd_idx].text)
+
+                    
+                    if (len(inter_area)!=0): #find matched prediction box. 
+                        
+                        pmatch_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
+                        if(inter_area[pmatch_idx] != 0 and pred_used[pmatch_idx] == 0):
+                            pred_used[pmatch_idx] = 1    
+                            pctxt= texts_all[pmatch_idx]
+                            dict_idx = self.char_dict_reverse[pctxt.upper()]
+                            if(pctxt.upper() == gctxt.upper()):
+                                rec_correct = rec_correct + 1
+                                cnt_dict_correct[dict_idx] = cnt_dict_correct[dict_idx] + 1
+                            cnt_dict_showup[dict_idx] = cnt_dict_showup[dict_idx] + 1                      
+            
+            for pred_idx in range(len(texts_all)):
+                if  pred_used[pred_idx]==0:
+                    pctxt=texts_all[pred_idx]
+                    dict_idx = self.char_dict_reverse[pctxt.upper()]
+                    cnt_dict_showup[dict_idx] = cnt_dict_showup[dict_idx] + 1
+                    
+            
+        
+        if total_number != cnt_dict_showup.sum():
+            print("count incorrect, total_number != cnt_dict_showup.sum()")
+            sys.exit(0)
+                
+        return total_number, rec_correct, cnt_dict_showup, cnt_dict_correct
+#        return 0.1, 2, 1
 
 
 
