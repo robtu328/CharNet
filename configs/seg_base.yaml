@@ -56,8 +56,8 @@ define:
           #keep_ratio: False
           keep_ratio: True
         - class: RandomCropData
-          #size: [640, 640]
           size: [640, 640]
+          #size: [1280, 640]
           max_tries: 10
         - class: MakeICDARData
 #        - class: MakeSegDetectionData
@@ -90,12 +90,12 @@ define:
               - {'cls': 'Affine', 'rotate': [-5, 5]}
               # Resize each image’s height to 50-75% of its original size and width to either 16px or 32px or 64px:
               # aug = iaa.Resize({"height": (0.5, 0.75), "width": [16, 32, 64]})
-              - ['Resize', [1280, 720]]
-              #- ['Resize', [2560, 1440]]
-              #- ['Resize', [1, 2.0]]
+              - ['Resize', {'width': 720, 'height': 720}]
+              #- ['Resize', [720, 1280]]
+              #- ['Resize', [1, 1.5]]
           only_resize: False
-          #keep_ratio: False
-          keep_ratio: True
+          keep_ratio: False
+          #keep_ratio: True
         - class: RandomCropData
           #size: [640, 640]
           size: [640, 640]
@@ -161,7 +161,7 @@ define:
             dataset: ^train_data_basket
             batch_size: 2
             num_workers: 2
-        epochs: 50     
+        epochs: 50    
         
         
         

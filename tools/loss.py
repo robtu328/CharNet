@@ -174,6 +174,7 @@ def Giou_np(bbox_p, bbox_g):
     return giou, loss_iou, loss_giou
 
 
+
 def keep_ce_loss(
             pred_char_fg, pred_char_cls,
             score_map_mask, score_map_char
@@ -632,6 +633,7 @@ class LossFunc(nn.Module):
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
         #   d1 = Top, d2 = Right , d3 = Bottom , d4 = Left
         d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = torch.split(bbox_g, 1, 1)
+        
         #     d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = tf.split(value=y_pred_geo, num_or_size_splits=5, axis=3)
         d1_pred, d2_pred, d3_pred, d4_pred, theta_pred = torch.split(bbox_p, 1, 1)
     
@@ -658,6 +660,7 @@ class LossFunc(nn.Module):
         # scale classification loss to match the iou loss part
         classification_loss *= 0.01
         #classification_loss *= 0.1
+        #classification_loss *= 0.5
 
         # d1 -> top, d2->right, d3->bottom, d4->left
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
@@ -683,6 +686,8 @@ class LossFunc(nn.Module):
             
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
+        
+        #L_g *=0.5
         #return torch.mean(L_g.squeeze(1) * y_true_cls * training_mask) + classification_loss
         return torch.sum(L_g.squeeze(1) * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask) + classification_loss
 

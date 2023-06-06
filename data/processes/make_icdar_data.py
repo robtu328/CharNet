@@ -46,8 +46,12 @@ class MakeICDARData(DataProcess):
         
         
         filename = data.get('filename', data['data_id'])
+        self.debug=False
         if self.debug:
             self.draw_polygons(data['image'], polygons, ignore_tags)
+            self.draw_polygons(data['image'], polygons_char, ignore_tags_char)
+            cv2.imshow("image", data['image'].astype('uint8'))
+            cv2.waitKey()
         shape = np.array(data['shape'])
         return OrderedDict(image=data['image'],
                            polygons=polygons,

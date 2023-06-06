@@ -106,7 +106,7 @@ class OrientedTextPostProcessing(nn.Module):
             if(len(word_instances[word_idx].char_bboxes) != len(word_instances[word_idx].text)):
                 print('Before filter bbox len (', len(word_instances[word_idx].char_bboxes),') != text len (',len(word_instances[word_idx].text),')')
         
-        #word_instances1 = self.filter_word_instances(word_instances, self.lexicon)
+        word_instances1 = self.filter_word_instances(word_instances, self.lexicon)
         
         #print ("New word length = ",len(word_instances1), "Old word length", len(word_instances))
         #for word_idx in range(len(word_instances1)):

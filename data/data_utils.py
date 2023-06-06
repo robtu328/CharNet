@@ -49,7 +49,7 @@ def draw_bonding_box(data ):
     
     img=data['image']
     ic, ih, iw= img.shape
-    bbox_gt=bonding_box_plane(data['geo_map'])
+    bbox_gt=bonding_box_plane(data['geo_map'], 'ground')
                 
     blend_pic= cv2.addWeighted( img, 0.5, bbox_gt, 0.5, 0.0)
     cv2.destroyAllWindows()
@@ -101,22 +101,32 @@ def blending_two_imgs(main_pic, ref_pic):
 
     return blend_pic
 
-def bonding_box_plane(geo_map):
+def bonding_box_plane(geo_map, geo_type='pred'):
     
 
     h=geo_map.shape[2]
     w=geo_map.shape[3]
+
+#ground_truth -> t, r, b, l
+#predit       -> t, b, l, r
     
-    if geo_map.shape[1]==5:
-        d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
+    if geo_type=='pred':
+        if geo_map.shape[1]==5:  
+            d1, d2, d3, d4, theta = torch.split(geo_map, 1, 1)
+        else:
+            d1, d2, d3, d4 = torch.split(geo_map, 1, 1)
+            theta = np.zeros((1, 1, h, w), dtype=np.float32)
     else:
-        d1, d2, d3, d4 = torch.split(geo_map, 1, 1)
-        theta = np.zeros((1, 1, h, w), dtype=np.float)
-        
-    d1=d1.cpu().detach().numpy()
-    d2=d2.cpu().detach().numpy()
-    d3=d3.cpu().detach().numpy()
-    d4=d4.cpu().detach().numpy()
+        if geo_map.shape[1]==5:  
+            d1, d4, d2, d3, theta = torch.split(geo_map, 1, 1)
+        else:
+            d1, d4, d2, d3 = torch.split(geo_map, 1, 1)
+            theta = np.zeros((1, 1, h, w), dtype=np.float32)
+            
+    d1=d1.cpu().detach().numpy()    #top
+    d2=d2.cpu().detach().numpy()    #bottom
+    d3=d3.cpu().detach().numpy()    #left
+    d4=d4.cpu().detach().numpy()    #right
 
     bbox= np.zeros((h, w), dtype=np.uint8)
     bbox=cv2.cvtColor(bbox, cv2.COLOR_GRAY2BGR)
@@ -159,14 +169,14 @@ def bonding_box_plane(geo_map):
                     theta[0][0][hidx][widx], widx, hidx)
                 four_points=np.array(four_points).astype('int32')
                 cv2.polylines(bbox, [four_points], True, (128, 128,0))
-                print('rotate_angle =', theta[0][0][hidx][widx])
+                #print('rotate_angle =', theta[0][0][hidx][widx])
                 #rotMat = cv2.getRotationMatrix2D(center,float(theta[0][0][hidx][widx]*180/np.pi),1.0)
                 #bb_rotated = np.vstack((bb.T,np.array((1,1,1,1))))
                 #bb_rotated = np.dot(rotMat, bb_rotated).T
                 #cv2.polylines(bbox, [np.array(bb_rotated).astype('int32')], True, (128, 128,0))
                 count=count+1
     
-    print("geo_map len =", count)
+    #print("geo_map len =", count)
     return bbox
 
 
@@ -797,7 +807,7 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
     """
     h, w = im_size
     poly_mask = np.zeros((h, w), dtype=np.uint8)
-    score_map = np.zeros((h, w), dtype=np.uint8)
+    score_map = np.zeros((h, w), dtype=np.float32)
     geo_map = np.zeros((h, w, 5), dtype=np.float32)
     # mask used during traning, to ignore some hard areas
     training_mask = np.ones((h, w), dtype=np.uint8)
@@ -946,7 +956,7 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
         #print('parallel {} rectangle {}'.format(parallelogram, rectange))
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
         # this is one area of many
-        """
+        """ 
         for y, x in xy_in_poly:
             point = np.array([x, y], dtype=np.float32)
             # top
@@ -975,7 +985,7 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
             
             tmp=np.expand_dims(geo_map.transpose(2,0,1), axis=0)
             tmp1=np.zeros(tmp.shape)
-            bbox=bonding_box_plane(torch.from_numpy(tmp1))
+            bbox=bonding_box_plane(torch.from_numpy(tmp1), 'ground')
             pts=np.array(rectange, np.int32)
             cv2.polylines(bbox, [pts], True, (0, 255,0))
             cv2.polylines(bbox, [four_points], True, (0, 255,255))

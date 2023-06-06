@@ -119,6 +119,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     #optimizer = torch.optim.SGD(params, momentum=0.001)
     #optimizer = torch.optim.SGD(params,lr=0.007, momentum=0.9)
     optimizer = torch.optim.SGD(params,lr=0.05, momentum=0.9)
+    #optimizer = torch.optim.SGD(params,lr=0.01, momentum=0.9)
+    #optimizer = torch.optim.Adam(params, lr=0.01)
     optimizer.zero_grad()
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
     invTrans  = img_loader.dataset.processes[4]
@@ -134,7 +136,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
     #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
     #batch=next(sequence)
     #default_collate(batch)
-    back_batch_time = 16
+    #back_batch_time = 16
+    back_batch_time = 8
     batch_times = 0
     loss_all = 0
     
@@ -154,21 +157,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         cnt_dict_showup = np.zeros(len(char_dict))
         cnt_dict_correct = np.zeros(len(char_dict))
         
-        debug4 = False
+        
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
-            if debug4:
-                print("Image Path", img_loader.dataset.image_paths[indexes[0]])
-                img=invTrans.lib_inv_trans(images[0])
-                blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
-                #blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
-                score_map_char_mask=torch.where(score_map_char> 0, 1, 0)
-                blend_char_img=blending_two_imgs(img, score_map_char_mask[0].cpu().numpy().astype('uint8'))
-                cv2.destroyAllWindows()
-                cv2.imshow("score_map", blend_img)
-                cv2.waitKey()
-                cv2.destroyAllWindows()
-                cv2.imshow("score_map_char", blend_char_img)
-                cv2.waitKey()
             #image format : CHW
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
                 pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, ss_word_bboxes \
@@ -188,22 +178,37 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             pred_word_fg_sq = torch.squeeze(pred_word_fg[:,1::], 1)
             pred_char_fg_sq = torch.squeeze(pred_char_fg[:,1::], 1)
             
-            score_map_char_mask=torch.where(score_map_char> 0, 1, 0)  
-            score_map_char_adjust=torch.where(score_map_char> 0, -1, 0) 
+            score_map_char_mask=torch.where(score_map_char> 0.0, torch.tensor(1.0, dtype=torch.float64), 0.0)  
+            score_map_char_adjust=torch.where(score_map_char> 0.0, torch.tensor(-1.0, dtype=torch.float64), 0.0) 
             score_map_char = score_map_char + score_map_char_adjust
                         
-            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1, 0).cpu().numpy()
-            pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1, 0).cpu().numpy()
-            
+            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1.0, 0.0)#.cpu().numpy()
+            pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1.0, 0.0)#.cpu().numpy()
+
+            debug4=False
+            if debug4:
+                print("Image Path", img_loader.dataset.image_paths[indexes[0]])
+                img=invTrans.lib_inv_trans(images[0])
+                blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
+                #blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
+                #score_map_char_mask=torch.where(score_map_char> 0, 1, 0)
+                blend_char_img=blending_two_imgs(img, score_map_char_mask[0].cpu().numpy().astype('uint8'))
+                cv2.destroyAllWindows()
+                cv2.imshow("score_map", blend_img)
+                cv2.waitKey()
+                cv2.destroyAllWindows()
+                cv2.imshow("score_map_char", blend_char_img)
+                cv2.waitKey()
+                
             debug3=False
             if debug3:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
-                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
+                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
                 cv2.imshow("test", blend_img)
                 cv2.waitKey()
                 
-                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].astype('uint8'))
+                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
                 cv2.imshow("test", blend_char_img)
                 cv2.waitKey()
@@ -235,37 +240,41 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             if debug1:
                 img=invTrans.lib_inv_trans(images[0])
                 ic, ih, iw= images[0].shape
-                bbox_gt=bonding_box_plane(geo_map)
+                bbox_gt=bonding_box_plane(geo_map, 'ground')
                 score_map_unsqueeze=torch.stack((score_map, score_map, score_map, score_map, score_map), axis=1)
-                bbox_pd=bonding_box_plane(pred_word_tblra*score_map_unsqueeze)
+                word_fg_unsqueeze=torch.stack((pred_word_fg_clip, pred_word_fg_clip, pred_word_fg_clip, pred_word_fg_clip, pred_word_fg_clip), axis=1)
+                #bbox_pd=bonding_box_plane(pred_word_tblra*score_map_unsqueeze)
+                bbox_pd=bonding_box_plane(pred_word_tblra*word_fg_unsqueeze)
                 bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 bbox_pd1 = cv2.resize(bbox_pd, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('bbox_gt1', blend_pic)
+                cv2.imshow('Word geo_map bbox_gt1', blend_pic)
                 cv2.waitKey()
             
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('bbox_pd1', blend_pic)
+                cv2.imshow('Word pred_rsult bbox_pd1', blend_pic)
                 cv2.waitKey()
             
-                bbox_gt_char=bonding_box_plane(geo_map_char)
+                bbox_gt_char=bonding_box_plane(geo_map_char, 'ground')
                 
                 score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_char_mask), axis=1)
-                bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
+                char_fg_unsqueeze=torch.stack((pred_char_fg_clip, pred_char_fg_clip, pred_char_fg_clip, pred_char_fg_clip), axis=1)
+                #bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
+                bbox_pd_char=bonding_box_plane(pred_char_tblr*char_fg_unsqueeze)
                 bbox_gt_char1 = cv2.resize(bbox_gt_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 bbox_pd_char1 = cv2.resize(bbox_pd_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_gt_char1, 0.5, 0.0)
                 
                 cv2.destroyAllWindows()
-                cv2.imshow('bbox_gt_char1', blend_pic)
+                cv2.imshow('Char geo_map bbox_gt_char1', blend_pic)
                 cv2.waitKey()
             
                 blend_pic= cv2.addWeighted( img, 0.5, bbox_pd_char1, 0.5, 0.0)
                 cv2.destroyAllWindows()
-                cv2.imshow('bbox_pd_char1', blend_pic)
+                cv2.imshow('Char pred_rsult bbox_pd_char1', blend_pic)
                 cv2.waitKey()
             
             
@@ -278,7 +287,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
-            debug2= False      # Final Predict word/char boxes showing
+            debug2= True     # Final Predict word/char boxes showing
+            debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -307,10 +317,15 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
             number1, correct1, cnt_dict_show1, cnt_dict_correct1 =  cregloss(word_instances, polygon_chars, line_chars)
             
+            
             loss3=0
-            loss4=0 
-            #number=1
-            #correct=0
+            loss4=0
+            
+            #loss5=0
+            #number1=1
+            #correct1=0
+            #cnt_dict_show1=1
+            #cnt_dict_correct1=0
             
             
             if debug == True:
@@ -337,7 +352,9 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             weighted2=0.3
             weighted3=0.4
             weighted4=1.0
+            
             weighted5=0.4
+            #weighted5=0
             #loss_all = loss1 + loss2 + loss3
             loss_all = loss1*weighted1 + loss2*weighted2 + (loss5)*weighted5
             print ("Epoch:",eidx,"/",train_synth_cfg['epochs']," No:", iter_cnt, ", Loss all: ", loss_all, \
@@ -347,13 +364,18 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #scheduler.step()
 
             loss_all=loss_all / back_batch_time
-            loss_all.backward()
+            #loss_all.backward()
+            if not torch.isnan(loss_all):
+                loss_all.backward()
+            else:
+                print("loss = Nan, skip")
+                #sys.exit("Loss Non detect")
             #loss1=None
             #loss2=None
             #loss3=None
             #loss4=None
             #loss_all=None
-            params_new=params_gen(charnet)
+            #params_new=params_gen(charnet)
             #paramsdiff=(params_new[0]['params']-params[0]['params'])
             #print('Params diff sum after backward()', paramsdiff)
             batch_times = batch_times + 1
@@ -363,6 +385,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 scheduler.step()
                 optimizer.zero_grad()
                 batch_times = 0
+                print("zero griadient")
         
 
         
@@ -577,7 +600,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             if debug1:
                 img=invTrans.lib_inv_trans(images[0])
                 ic, ih, iw= images[0].shape
-                bbox_gt=bonding_box_plane(geo_map)
+                bbox_gt=bonding_box_plane(geo_map, 'ground')
                 score_map_unsqueeze=torch.stack((score_map, score_map, score_map, score_map, score_map), axis=1)
                 bbox_pd=bonding_box_plane(pred_word_tblra*score_map_unsqueeze)
                 bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
@@ -593,7 +616,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 cv2.imshow('bbox_pd1', blend_pic)
                 cv2.waitKey()
             
-                bbox_gt_char=bonding_box_plane(geo_map_char)
+                bbox_gt_char=bonding_box_plane(geo_map_char, 'ground')
                 
                 score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_char_mask), axis=1)
                 bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
@@ -973,12 +996,6 @@ def validate_model1( charnet, args, cfg, img_loader, train_cfg, debug=False):
 
 
 
-
-
-
-
-
-
 def test_model2(args, cfg):
     
     charnet = CharNet()
@@ -1059,7 +1076,9 @@ if __name__ == '__main__':
     data['filename']=image_path
     data['data_id']=image_path
     data['image']=imgr
-    
+
+    train_synth_img_loader.data_loader.dataset.is_training=True    
+    tmp=train_synth_img_loader.data_loader.dataset[2]
     
     #data5=train_synth_img_loader.data_loader.dataset[1]
     #data['lines']=target
