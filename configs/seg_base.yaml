@@ -71,6 +71,7 @@ define:
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
+    
     #snumber: 1000
     #snumber: 10000
 
@@ -90,7 +91,7 @@ define:
               - {'cls': 'Affine', 'rotate': [-5, 5]}
               # Resize each image’s height to 50-75% of its original size and width to either 16px or 32px or 64px:
               # aug = iaa.Resize({"height": (0.5, 0.75), "width": [16, 32, 64]})
-              - ['Resize', {'width': 720, 'height': 720}]
+              - ['Resize', {'width': 1024, 'height': 512}]
               #- ['Resize', [720, 1280]]
               #- ['Resize', [1, 1.5]]
           only_resize: False
@@ -98,7 +99,7 @@ define:
           #keep_ratio: True
         - class: RandomCropData
           #size: [640, 640]
-          size: [640, 640]
+          size: [1024, 512]
           max_tries: 10
         - class: MakeICDARData
 #        - class: MakeSegDetectionData
@@ -111,7 +112,9 @@ define:
 #          superfluous: [ 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char']
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+          #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
+    #seqList: True
     #snumber: 1000
     #snumber: 10000
 

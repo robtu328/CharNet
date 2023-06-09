@@ -40,6 +40,7 @@ class SynthDataset(data.Dataset, Configurable):
     processes = State(default=[])
     mode = State(default="train")
     snumber= State(default=None)
+    seqList= State(default=False)
 
     def __init__(self, data_dir=None, mat_list=None, cmd={}, **kwargs):
         self.load_all(**kwargs)
@@ -74,9 +75,9 @@ class SynthDataset(data.Dataset, Configurable):
                 print('Synthdata exist list size is not expected number (', self.num_samples, ')')
                 quit()
         
-        self.seqList=False
+        #self.seqList=True
         if (self.seqList):
-            self.map_idx = list(range(0,1000))
+            self.map_idx = list(range(0,self.num_samples))
         #data_length = self.num_samples
         self.train_s=0
         self.train_e=int(self.num_samples*8/10)
@@ -257,6 +258,7 @@ class SynthDataset(data.Dataset, Configurable):
          
         
         index_update = self.map_idx[index_update]
+        #index_update = 1991
             
         data = {}
         image_path = self.image_paths[index_update]

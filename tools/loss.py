@@ -658,9 +658,9 @@ class LossFunc(nn.Module):
     def forward(self, y_true_cls, y_pred_cls, y_true_geo, y_pred_geo, training_mask):
         classification_loss = dice_coefficient(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
-        classification_loss *= 0.01
+        #classification_loss *= 0.01
         #classification_loss *= 0.1
-        #classification_loss *= 0.5
+        classification_loss *= 0.5
 
         # d1 -> top, d2->right, d3->bottom, d4->left
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
@@ -689,5 +689,5 @@ class LossFunc(nn.Module):
         
         #L_g *=0.5
         #return torch.mean(L_g.squeeze(1) * y_true_cls * training_mask) + classification_loss
-        return torch.sum(L_g.squeeze(1) * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask) + classification_loss
+        return torch.sum(L_g.squeeze(1) * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask)*0.5 + classification_loss
 

@@ -162,8 +162,8 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #image format : CHW
             char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
                 pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, ss_word_bboxes \
-                    = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
-                 
+                    = charnet(images.cuda(), 1, 1, images[0].size()[2], images[0].size()[1], images_np)
+                                                   # Width               Height 
             
             
             #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))
@@ -182,9 +182,10 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             score_map_char_adjust=torch.where(score_map_char> 0.0, torch.tensor(-1.0, dtype=torch.float64), 0.0) 
             score_map_char = score_map_char + score_map_char_adjust
                         
-            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1.0, 0.0)#.cpu().numpy()
+            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.9, 1.0, 0.0)#.cpu().numpy()
             pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1.0, 0.0)#.cpu().numpy()
 
+            debug4=True
             debug4=False
             if debug4:
                 print("Image Path", img_loader.dataset.image_paths[indexes[0]])
@@ -200,17 +201,18 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 cv2.imshow("score_map_char", blend_char_img)
                 cv2.waitKey()
                 
+            debug3=True
             debug3=False
             if debug3:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, pred_word_fg_clip[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_img)
+                cv2.imshow("pred_word_fg", blend_img)
                 cv2.waitKey()
                 
                 blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'))
                 cv2.destroyAllWindows()
-                cv2.imshow("test", blend_char_img)
+                cv2.imshow("pred_char_fg", blend_char_img)
                 cv2.waitKey()
             
             #img=invTrans.lib_inv_trans(images[0])
@@ -235,7 +237,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #    1, 1, images[0].size()[1], images[0].size()[2]
             #)
             #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
-            
+            debug1=True
             debug1=False    # Predict word/char boxes showing        
             if debug1:
                 img=invTrans.lib_inv_trans(images[0])
@@ -288,7 +290,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
             debug2= True     # Final Predict word/char boxes showing
-            debug2= False     # Final Predict word/char boxes showing
+            #debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -1077,10 +1079,11 @@ if __name__ == '__main__':
     data['data_id']=image_path
     data['image']=imgr
 
-    train_synth_img_loader.data_loader.dataset.is_training=True    
-    tmp=train_synth_img_loader.data_loader.dataset[2]
+    train_synth_img_loader.data_loader.dataset.is_training=True
     
-    #data5=train_synth_img_loader.data_loader.dataset[1]
+    
+    
+    
     #data['lines']=target
     #data['chars']=target_char
     #img_pathd="./test.jpg"
@@ -1093,6 +1096,26 @@ if __name__ == '__main__':
     data5=myprocess[4](data4)
     data6=myprocess[5](data5)
     
+    
+    data_oneT=train_synth_img_loader.data_loader.dataset[1991]
+    debug1=False
+    if debug1:
+        #print("Image Path", data_oneT['filename'])
+        invTrans=train_synth_img_loader.data_loader.dataset.processes[4]
+        img=invTrans.lib_inv_trans(data_oneT['image'])
+        blend_img=blending_two_imgs(img, data_oneT['score_map'].astype('uint8'))
+        #blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
+        #score_map_char_mask=torch.where(score_map_char> 0, 1, 0)
+        blend_char_img=blending_two_imgs(img, data_oneT['score_map_char'].astype('uint8'))
+        #draw_polys(blend_img, data_oneT['polygons'])
+        draw_polys(blend_char_img, data_oneT['polygons_char'])
+        cv2.destroyAllWindows()
+        cv2.imshow("score_map", blend_img)
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+        cv2.imshow("score_map_char", blend_char_img)
+        cv2.waitKey()
+        
     #dataf=mydataset[0]
     
     #dlen = len(train_synth_img_loader.data_loader)

@@ -168,7 +168,9 @@ def bonding_box_plane(geo_map, geo_type='pred'):
                     b[4], b[5],
                     theta[0][0][hidx][widx], widx, hidx)
                 four_points=np.array(four_points).astype('int32')
+                top_lines=np.array([four_points[0], four_points[1]])
                 cv2.polylines(bbox, [four_points], True, (128, 128,0))
+                cv2.polylines(bbox, [top_lines], True, (255, 0, 0))
                 #print('rotate_angle =', theta[0][0][hidx][widx])
                 #rotMat = cv2.getRotationMatrix2D(center,float(theta[0][0][hidx][widx]*180/np.pi),1.0)
                 #bb_rotated = np.vstack((bb.T,np.array((1,1,1,1))))
@@ -817,8 +819,8 @@ def generate_rbox(im_size, polys, tags, texts, WC='W', table=[]):
     for poly_idx, (poly, tag, text) in enumerate (zip(polys, tags, texts)):
         #poly = poly_tag['points']
         #tag = poly_tag['text']
-        poly = np.array([poly[0], poly[3], poly[2], poly[1]])
-        #poly = np.array(poly)
+        #poly = np.array([poly[0], poly[3], poly[2], poly[1]])
+        poly = np.array(poly)
         tag  = np.array(tag)
     
         r = [None, None, None, None]
