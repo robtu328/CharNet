@@ -106,355 +106,6 @@ def params_gen( net):
                     'weight_decay': 0.0001
                 }]
     return params
-def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
-    
-    #debug=True
-    epochs=train_cfg['epochs']
-    charnet.train()
-    charnet.cuda()
-    params=params_gen(charnet)
-    
-    
-    #optimizer = torch.optim.SGD(params, momentum=0.001)
-    #optimizer = torch.optim.SGD(params,lr=0.007, momentum=0.9)
-    optimizer = torch.optim.SGD(params,lr=0.05, momentum=0.9)
-    optimizer.zero_grad()
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.94)
-    invTrans  = img_loader.dataset.processes[4]
-
-    criterion_w = LossFunc() 
-    criterion_c = LossFunc() 
-    cmatch= char_matching(cfg)
-    cregloss=char_reg_loss(cfg)
-    char_dict = load_char_dict(cfg.CHAR_DICT_FILE)
-    
-    #sequence=iter(img_loader)
-    #images, polygons, polygon_chars, lines_texts, lines_chars, gts, ks, gt_chars, mask_chars, thresh_maps, thresh_masks, thresh_map_chars, thresh_mask_chars=next(sequence)
-    #batch=next(sequence)
-    #default_collate(batch)
-    back_batch_time = 16
-    batch_times = 0
-    loss_all = 0
-    
-    time=0
-    if debug:
-        tracemalloc.start()
-        snapshotO = tracemalloc.take_snapshot()
-    
-    for eidx in range (train_synth_cfg['epochs']):
-        loss1_total = 0
-        loss2_total = 0
-        loss3_total = 0
-        loss4_total = 0
-        iter_cnt = 0
-        total_number=1
-        correct_number=0
-        cnt_dict_showup = np.zeros(len(char_dict))
-        cnt_dict_correct = np.zeros(len(char_dict))
-        
-        debug = False
-        for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
-            if debug:
-                img=invTrans.lib_inv_trans(images[0])
-                blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
-                blend_char_img=blending_two_imgs(img, score_map_char[0].cpu().numpy().astype('uint8'))
-                cv2.destroyAllWindows()
-                cv2.imshow("test", blend_img)
-                cv2.waitKey()
-                cv2.destroyAllWindows()
-                cv2.imshow("test", blend_char_img)
-                cv2.waitKey()
-            #image format : CHW
-            char_bboxes, char_scores, word_instances, pred_word_fg, pred_word_tblr,\
-                pred_word_orient, pred_char_fg, pred_char_tblr, pred_char_orient, pred_char_cls, ss_word_bboxes \
-                    = charnet(images.cuda(), 1, 1, images[0].size()[1], images[0].size()[2], images_np)
-                 
-            
-            
-            #pred_word_tblr = torch.permute(pred_word_tblr, (0, 2, 3, 1))
-            #pred_char_tblr = torch.permute(pred_char_tblr, (0, 2, 3, 1))
-            char_size = pred_char_tblr.size()
-            #pred_word_orient = torch.permute(pred_word_orient, (0, 2, 3, 1))
-            pred_char_orient = torch.zeros([char_size[0], 1, char_size[2], char_size[3]]).cuda()
-        
-            pred_word_tblra = torch.cat((pred_word_tblr, pred_word_orient), 1)
-            pred_char_tblra = torch.cat((pred_char_tblr, pred_char_orient), 1)
-            
-            pred_word_fg_sq = torch.squeeze(pred_word_fg[:,1::], 1)
-            pred_char_fg_sq = torch.squeeze(pred_char_fg[:,1::], 1)
-            
-            score_map_char_mask=torch.where(score_map_char> 0, 1, 0)  
-            score_map_char_adjust=torch.where(score_map_char> 0, -1, 0) 
-            score_map_char = score_map_char + score_map_char_adjust
-                        
-            pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.95, 1, 0).cpu().numpy()
-            pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1, 0).cpu().numpy()
-            
-            if debug:  # Predict word/char classes showing 
-                img=invTrans.lib_inv_trans(images[0])
-                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].astype('uint8'))
-                cv2.destroyAllWindows()
-                cv2.imshow("test", blend_img)
-                cv2.waitKey()
-                
-                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].astype('uint8'))
-                cv2.destroyAllWindows()
-                cv2.imshow("test", blend_char_img)
-                cv2.waitKey()
-            
-            #img=invTrans.lib_inv_trans(images[0])
-            #for i in range(len(valid_boxe)):b=valid_boxe[i][1][0:8].astype('int32'); pts=[b];cv2.polylines(img, pts, True, (0, 0,255));
-
-            
-            score_map=score_map.cuda()
-            geo_map=torch.permute(geo_map.cuda(), (0,3,1,2))
-            training_mask=training_mask.cuda()
-            score_map_char_mask=score_map_char_mask.cuda()
-            score_map_mask=score_map_char.cuda()
-            score_map_char_mask_np=score_map_char_mask.cpu().numpy()
-            
-            geo_map_char=torch.permute(geo_map_char[0].cuda(), (0,3,1,2))
-            training_mask_char=training_mask_char.cuda()    
-                    
-            
-            
-            #char_bboxes_loss, char_scores_loss = charnet.post_processing.parse_char_in_gt(
-            #    pred_word_fg, pred_char_fg, pred_char_tblr, pred_char_cls,
-            #    score_map_mask_np, geo_map_char, score_map_char, 
-            #    1, 1, images[0].size()[1], images[0].size()[2]
-            #)
-            #   d1 = Top, d2 = Bottom, d3 = Left, d4 = Right
-            
-            debug1=False    # Predict word/char boxes showing        
-            if debug1:
-                img=invTrans.lib_inv_trans(images[0])
-                ic, ih, iw= images[0].shape
-                bbox_gt=bonding_box_plane(geo_map)
-                score_map_unsqueeze=torch.stack((score_map, score_map, score_map, score_map, score_map), axis=1)
-                bbox_pd=bonding_box_plane(pred_word_tblra*score_map_unsqueeze)
-                bbox_gt1 = cv2.resize(bbox_gt, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-                bbox_pd1 = cv2.resize(bbox_pd, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-                
-                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt1, 0.5, 0.0)
-                cv2.destroyAllWindows()
-                cv2.imshow('bbox_gt1', blend_pic)
-                cv2.waitKey()
-            
-                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd1, 0.5, 0.0)
-                cv2.destroyAllWindows()
-                cv2.imshow('bbox_pd1', blend_pic)
-                cv2.waitKey()
-            
-                bbox_gt_char=bonding_box_plane(geo_map_char)
-                
-                score_map_char_unsqueeze=torch.stack((score_map_char_mask, score_map_char_mask, score_map_char_mask, score_map_char_mask), axis=1)
-                bbox_pd_char=bonding_box_plane(pred_char_tblr*score_map_char_unsqueeze)
-                bbox_gt_char1 = cv2.resize(bbox_gt_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-                bbox_pd_char1 = cv2.resize(bbox_pd_char, (iw, ih), interpolation=cv2.INTER_AREA).astype('uint8')
-                blend_pic= cv2.addWeighted( img, 0.5, bbox_gt_char1, 0.5, 0.0)
-                
-                cv2.destroyAllWindows()
-                cv2.imshow('bbox_gt_char1', blend_pic)
-                cv2.waitKey()
-            
-                blend_pic= cv2.addWeighted( img, 0.5, bbox_pd_char1, 0.5, 0.0)
-                cv2.destroyAllWindows()
-                cv2.imshow('bbox_pd_char1', blend_pic)
-                cv2.waitKey()
-            
-            
-
-            loss1 = criterion_w(score_map, pred_word_fg_sq, geo_map, pred_word_tblra, training_mask)
-            loss2 = criterion_c(score_map_char_mask, pred_char_fg_sq, geo_map_char, pred_char_tblra, training_mask_char)
-            #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
-            #loss3 = dice_loss(score_map_char, pred_char_cls*score_map_char_mask.unsqueeze(1))
-            
-            loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
-            #pred_char_fg, pred_char_cls,
-            #score_map_mask, score_map_char
-            debug2= False      # Final Predict word/char boxes showing
-            if debug2:
-                #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
-                color = 0
-                img=invTrans.lib_inv_trans(images[0])
-                img_box = drawBoxes(img, ss_word_bboxes[0], color)
-                cv2.destroyAllWindows()
-                cv2.imshow('ss_word_bboxes', img_box)
-                cv2.waitKey()
-                
-                img_box = drawBoxes(img, char_bboxes[0], color)
-                cv2.destroyAllWindows()
-                cv2.imshow('char_bboxes', img_box)
-                cv2.waitKey()
-                
-                img_box=vis(img, word_instances[0])
-                cv2.destroyAllWindows()
-                cv2.imshow('word_instances', img_box)
-                cv2.waitKey()
-            
-            if debug == True:
-                print ("Memory check start")
-                all_objects = muppy.get_objects()
-                sum1 = summary.summarize(all_objects)
-                summary.print_(sum1)
-            
-            #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            number1, correct1, cnt_dict_show1, cnt_dict_correct1 =  cregloss(word_instances, polygon_chars, line_chars)
-            
-            loss3=0
-            loss4=0 
-            #number=1
-            #correct=0
-            
-            
-            if debug == True:
-                all_objects = muppy.get_objects()
-                sum1 = summary.summarize(all_objects)
-                summary.print_(sum1)
-                print ("Memory check end")
-            
-            
-            total_number = total_number+number1
-            correct_number=correct_number+correct1
-            cnt_dict_showup = cnt_dict_showup + cnt_dict_show1
-            cnt_dict_correct = cnt_dict_correct + cnt_dict_correct1
-            ap = np.divide(cnt_dict_correct, cnt_dict_showup)
-            mAP= np.nanmean(ap)
-            
-            #loss1_total = loss1_total + loss1
-            #loss2_total = loss2_total + loss2
-            #loss3_total = loss3_total + loss3
-            #loss4_total = loss4_total + loss4
-            
-            weighted1=0.3
-            weighted2=0.3
-            weighted3=0.4
-            weighted4=1.0
-            weighted5=0.4
-            #loss_all = loss1 + loss2 + loss3
-            loss_all = loss1*weighted1 + loss2*weighted2 + (loss5)*weighted5
-            print ("Epoch:",eidx,"/",train_synth_cfg['epochs']," No:", iter_cnt, ", Loss all: ", loss_all, \
-                   "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "loss5:", loss5, \
-                   "accuracy:", correct_number/total_number, "mAP: ", mAP)
-            
-            #scheduler.step()
-
-            loss_all=loss_all / back_batch_time
-            loss_all.backward()
-            #loss1=None
-            #loss2=None
-            #loss3=None
-            #loss4=None
-            #loss_all=None
-            params_new=params_gen(charnet)
-            #paramsdiff=(params_new[0]['params']-params[0]['params'])
-            #print('Params diff sum after backward()', paramsdiff)
-            batch_times = batch_times + 1
-        
-            if batch_times >= back_batch_time:
-                optimizer.step()
-                scheduler.step()
-                optimizer.zero_grad()
-                batch_times = 0
-        
-
-        
-            iter_cnt = iter_cnt + 1
-            time = time + 1
-            if debug==True and time == 10:
-                exit()
-
-
-
-
-            state = {
-                    'epochs'      : epochs,
-                    'state_dict' : charnet.state_dict(),
-                    'optimizer'  : optimizer.state_dict(),
- #                   'optimizer1'  : optimizer1.state_dict(),
- #                   'optimizer2'  : optimizer2.state_dict(),
- #                   'optimizer3'  : optimizer3.state_dict()
-                    }
-            
-
-            images=None
-            images_np=None
-            pred_word_orient=None
-            pred_word_fg=None
-            pred_word_tblr=None
-            pred_char_fg=None
-            pred_char_tblr=None
-            pred_char_orient=None
-            pred_char_cls=None
-            char_bboxes=None
-            char_scores=None 
-            polygon_chars=None
-            line_chars=None
-            ss_word_bboxes=None
-            indexes=None
-            
-            if (debug==True):print("Memory usage", psutil.Process().memory_info().rss / (1024 * 1024))
-            
-            
-            if debug:
-                snapshotN = tracemalloc.take_snapshot()
-                snapshotN.filter_traces((tracemalloc.Filter(True, "loss"),
-                                     tracemalloc.Filter(True, "<unknown>"),))
-                top_stats = snapshotN.statistics('lineno')
-                #top_stats = snapshotN.compare_to(snapshotO, 'lineno')
-                snapshotO = snapshotN
-                print("[Top 10]")
-                for stat in top_stats[:10]:
-                    print(stat)
-            
-#            all_objects = muppy.get_objects()
-#            sum1 = summary.summarize(all_objects)
-#            summary.print_(sum1)
-            
-            if (debug==True):
-                print("GPU Usage after emptying the cache")
-                gpu_usage()
-                
-            #print("GPU Usage after emptying the cache")
-            #gpu_usage()    
-            
-        torch.save(charnet.state_dict(), './model_save.pth')
-        
-        
-        
-        #validate_model(charnet, args, cfg, img_loader)
-        #loss1_average = loss1_total / iter_cnt
-        #loss2_average = loss2_total / iter_cnt
-        #loss3_average = loss3_total / iter_cnt
-        #loss4_average = loss4_total / iter_cnt
-        #loss_average = loss1_average*weighted1 + loss2_average*weighted2 + loss3_average*weighted3
-        #print (eidx, " epoch, ", iter_cnt, "Loss average all: ", loss_average, "loss1_average: ", loss1_average, "loss2_average: ", loss2_average, "loss3_average: ", loss3_average, "loss4_average: ", loss4_average)
-        #for ind in range(len(images)):
-        #    char_bboxes, char_scores, word_instances = charnet(images[ind], 1, 1, images[ind].size()[0], images[ind].size()[1])
-#            char_bboxes, char_scores, word_instances = charnet(batch['image'][ind].numpy().astype('uint8'), 1, 1, batch['image'][ind].size()[0], batch['image'][ind].size()[1])
-        #    print(char_bboxes, word_instances)
-        
-        
-        #Check  Image size. and transofrmation reuslt
-#        print("Processing {}...".format(im_name))
-#        im_file = os.path.join(args.image_dir, im_name)
-#        im_original = cv2.imread(im_file)
-#        im, scale_w, scale_h, original_w, original_h = resize(im_original, size=cfg.INPUT_SIZE)
-#        with torch.no_grad():b
-#            char_bboxes, char_scores, word_instances = charnet(im, scale_w, scale_h, original_w, original_h)
-#            save_word_recognition(
-#                word_instances, os.path.splitext(im_name)[0],
-#                args.results_dir, cfg.RESULTS_SEPARATOR
-#            )
-
-    
-    
-    
-    params=params_gen(charnet)
-    
-    return params
-
-
 
 
 def validate_model( charnet, args, cfg, img_loader, debug=False):
@@ -464,7 +115,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
     charnet.eval()
     charnet.cuda()
     params=params_gen(charnet)
-    img_loader.dataset.mode = 'valid' 
+    #img_loader.dataset.mode = 'valid' 
     #img_loader.dataset.mode = 'train' 
 
 
@@ -807,7 +458,8 @@ if __name__ == '__main__':
     train_cfg.update(cmd=cmd_in)
  
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
-    train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
+    train_synth_cfg=Trainsetting_conf['Experiment']['valid_basket']
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)
@@ -842,7 +494,7 @@ if __name__ == '__main__':
     data['data_id']=image_path
     data['image']=imgr
 
-    train_synth_img_loader.data_loader.dataset.is_training=True
+    #train_synth_img_loader.data_loader.dataset.is_training=True
 
     
     #data5=train_synth_img_loader.data_loader.dataset[1]
@@ -921,6 +573,7 @@ if __name__ == '__main__':
     #cv2.waitKey(0)
     
     charnet = CharNet(hourglass88GCN())
+    #charnet = CharNet()
     #charnet = CharNet(backbone=InternImage(channels=256, depths=[4, 4, 18, 4], groups=[4, 8, 16, 32],layer_scale=1.0))
     if(cfg.WEIGHT !=''):
         charnet.load_state_dict(torch.load(cfg.WEIGHT))

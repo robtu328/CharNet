@@ -119,6 +119,36 @@ define:
     #snumber: 10000
 
 
+  - name: valid_data_basket
+    class: SynthDataset
+    data_dir:
+        - '/home/robtu/Github/data/basketball/metadata/'
+    mat_list:
+        - '/home/robtu/Github/data/basketball/gt_basket.mat'
+    processes:
+        - class: AugmentDetectionData
+          augmenter_args:
+              - ['Resize', {'width': 1024, 'height': 512}]
+          only_resize: False
+          keep_ratio: False
+          #keep_ratio: True
+        - class: RandomCropData
+          size: [1024, 512]
+          max_tries: 10
+        - class: MakeICDARData
+        - class: MakeBorderMap
+          charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
+        - class: NormalizeImage
+          norm_type: 'lib'
+        - class: FilterKeys
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+          #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+    mode: "valid"
+    #seqList: True
+    #snumber: 1000
+    #snumber: 10000
+
 
 
 
@@ -164,7 +194,15 @@ define:
             dataset: ^train_data_basket
             batch_size: 2
             num_workers: 2
-        epochs: 50    
+        epochs: 60    
+    valid_basket: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^valid_data_basket
+            batch_size: 2
+            num_workers: 2
+        epochs: 1   
         
         
         

@@ -20,7 +20,7 @@ from data.image_dataset import ImageDataset
 from data.synth_dataset import SynthDataset
 from data.data_loader import DataLoader, TrainSettings
 #from interimage.intern_image import InternImage
-
+from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
 
 from concern.config import Configurable, Config
 from data.data_utils import generate_rbox, blending_two_imgs, bonding_box_plane, createBlankPicture, draw_polys
@@ -290,7 +290,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
             debug2= True     # Final Predict word/char boxes showing
-            #debug2= False     # Final Predict word/char boxes showing
+            debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -1033,7 +1033,6 @@ if __name__ == '__main__':
     cfg.freeze()
 
     print(cfg)
-    
     conf = Config()
     Trainsetting_conf=conf.compile(conf.load('./configs/seg_base.yaml'))
     Trainsetting_conf.update(cmd=args)
@@ -1156,7 +1155,8 @@ if __name__ == '__main__':
     #cv2.imshow('TEST', dst.astype('uint8'))
     #cv2.waitKey(0)
     
-    charnet = CharNet()
+    charnet = CharNet(hourglass88GCN())
+    #charnet = CharNet()
     #charnet = CharNet(backbone=InternImage(channels=256, depths=[4, 4, 18, 4], groups=[4, 8, 16, 32],layer_scale=1.0))
     if(cfg.WEIGHT !=''):
         charnet.load_state_dict(torch.load(cfg.WEIGHT))
