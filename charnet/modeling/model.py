@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from charnet.modeling.backbone.resnet import resnet50
 #from charnet.modeling.backbone.hourglassGCN import hourglass88
-from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
+from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN, Residual
 #from charnet.modeling.backbone.hourglass import hourglass88
 from charnet.modeling.backbone.decoder import Decoder
 from collections import OrderedDict
@@ -19,6 +19,7 @@ import torchvision.transforms as T
 from .postprocessing import OrientedTextPostProcessing
 from charnet.config import cfg
 import numpy as np
+from interimage.ops_dcnv3 import modules as opsm
 #from interimage.intern_image import InternImage
 
 
@@ -108,10 +109,19 @@ class CharRecognizer(nn.Module):
         )
         self.classifier = nn.Conv2d(bottleneck_channels, num_classes, kernel_size=1)
 
+        core_op=getattr(opsm, 'DCNv3_pytorch')
+
+        self.dcn = nn.Sequential(
+            core_op( channels=bottleneck_channels, kernel_size=3 , stride=1, pad=1,dilation=1,
+                        group=4, offset_scale=1.0, act_layer='GELU', norm_layer='LN',
+                        dw_kernel_size=None, center_feature_scale=False, imgFmt='CHW'),
+            Residual(bottleneck_channels, num_classes, stride=1)    #channels in= 128, channels out=256
+        ) 
+
     def forward(self, feat):
         feat = self.body(feat)
         return self.classifier(feat)
-
+        #return self.dcn(feat)
 
 class CharNet(nn.Module):
     def __init__(self, backbone=hourglass88()):
