@@ -113,6 +113,7 @@ class CharRecognizer(nn.Module):
 
         self.dcn = nn.Sequential(
             core_op( channels=bottleneck_channels, kernel_size=3 , stride=1, pad=1,dilation=1,
+            #core_op( channels=bottleneck_channels, kernel_size=5 , stride=1, pad=2,dilation=1,
                         group=4, offset_scale=1.0, act_layer='GELU', norm_layer='LN',
                         dw_kernel_size=None, center_feature_scale=False, imgFmt='CHW'),
             Residual(bottleneck_channels, num_classes, stride=1)    #channels in= 128, channels out=256
@@ -120,8 +121,8 @@ class CharRecognizer(nn.Module):
 
     def forward(self, feat):
         feat = self.body(feat)
-        return self.classifier(feat)
-        #return self.dcn(feat)
+        #return self.classifier(feat)
+        return self.dcn(feat)
 
 class CharNet(nn.Module):
     def __init__(self, backbone=hourglass88()):

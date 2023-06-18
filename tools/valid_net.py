@@ -193,15 +193,16 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 cv2.waitKey()
                 
             debug3=True
-            debug3=False
+            #debug3=False
             if debug3:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
-                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].cpu().numpy().astype('uint8'))
-                cv2.destroyAllWindows()
-                cv2.imshow("pred_word_fg", blend_img)
-                cv2.waitKey()
+                blend_img=blending_two_imgs(img, pred_word_fg_clip[0].cpu().numpy().astype('uint8'), 0.5, 0.5)
+                #cv2.destroyAllWindows()
+                #cv2.imshow("pred_word_fg", blend_img)
+                #cv2.waitKey()
                 
-                blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'))
+                #blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'))
+                blend_char_img=blending_two_imgs(blend_img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'), 0.5, 0.5)
                 cv2.destroyAllWindows()
                 cv2.imshow("pred_char_fg", blend_char_img)
                 cv2.waitKey()
@@ -277,7 +278,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
 
             debug2= True     # Final Predict word/char boxes showing
-            debug2= False     # Final Predict word/char boxes showing
+            #debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -459,7 +460,8 @@ if __name__ == '__main__':
  
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
-    train_synth_cfg=Trainsetting_conf['Experiment']['valid_basket']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['valid_basket']
+    train_synth_cfg=Trainsetting_conf['Experiment']['valid_game']
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)
@@ -572,8 +574,8 @@ if __name__ == '__main__':
     #cv2.imshow('TEST', dst.astype('uint8'))
     #cv2.waitKey(0)
     
-    charnet = CharNet(hourglass88GCN())
-    #charnet = CharNet()
+    #charnet = CharNet(hourglass88GCN())
+    charnet = CharNet()
     #charnet = CharNet(backbone=InternImage(channels=256, depths=[4, 4, 18, 4], groups=[4, 8, 16, 32],layer_scale=1.0))
     if(cfg.WEIGHT !=''):
         charnet.load_state_dict(torch.load(cfg.WEIGHT))

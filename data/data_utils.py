@@ -84,7 +84,7 @@ def draw_rotated_box(bimg, center_x, center_y, d):
     
     return new_bimg
 
-def blending_two_imgs(main_pic, ref_pic):
+def blending_two_imgs(main_pic, ref_pic, alpha=0.3, one_alpha=0.7):
     
     ih,iw,ic = main_pic.shape
     rh,rw=ref_pic.shape
@@ -97,7 +97,7 @@ def blending_two_imgs(main_pic, ref_pic):
     test=ref_pic1*128
     test2=cv2.cvtColor(test, cv2.COLOR_GRAY2BGR)
 #beta = ( 1.0 - alpha );
-    blend_pic=cv2.addWeighted( main_pic, 0.3, test2, 0.7, 0.0)
+    blend_pic=cv2.addWeighted( main_pic, alpha, test2, one_alpha, 0.0)
 
     return blend_pic
 

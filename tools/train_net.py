@@ -290,7 +290,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
             debug2= True     # Final Predict word/char boxes showing
-            debug2= False     # Final Predict word/char boxes showing
+            #debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -1043,7 +1043,8 @@ if __name__ == '__main__':
     train_cfg.update(cmd=cmd_in)
     
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
-    train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
+    train_synth_cfg=Trainsetting_conf['Experiment']['train_game']
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)
@@ -1155,8 +1156,8 @@ if __name__ == '__main__':
     #cv2.imshow('TEST', dst.astype('uint8'))
     #cv2.waitKey(0)
     
-    charnet = CharNet(hourglass88GCN())
-    #charnet = CharNet()
+    #charnet = CharNet(hourglass88GCN())
+    charnet = CharNet()
     #charnet = CharNet(backbone=InternImage(channels=256, depths=[4, 4, 18, 4], groups=[4, 8, 16, 32],layer_scale=1.0))
     if(cfg.WEIGHT !=''):
         charnet.load_state_dict(torch.load(cfg.WEIGHT))

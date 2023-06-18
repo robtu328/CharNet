@@ -285,6 +285,22 @@ define:
             batch_size: 2
             num_workers: 2
         epochs: 1   
+    train_game: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^train_data_game
+            batch_size: 2
+            num_workers: 2
+        epochs: 60    
+    valid_game: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^valid_data_game
+            batch_size: 2
+            num_workers: 2
+        epochs: 1   
         
         
         
