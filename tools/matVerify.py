@@ -261,13 +261,13 @@ def vis(img, wordbox, wordtxt):
         )
     return img_word_ins
 
-def verify_mat(mat, index=None):
+def verify_mat(mat, index=None, eye_check=False):
 
     imgnames=mat['imnames'][0]
     wordBB=mat['wordBB'][0]
     charBB=mat['charBB'][0]
     texts=mat['txt'][0]
-    eye_check=False
+    #eye_check=False
     ellist = []
     
     db_length=len(imgnames)
@@ -275,20 +275,25 @@ def verify_mat(mat, index=None):
         name=imgnames[index][0]
         wBB = wordBB[index]
         cBB = charBB[index]
-        txt = texts[index]
+        txt = np.char.strip(texts[index])
         
-        if index == 10000:
-            print ('wBB', wBB)
-            print ('cBB', cBB)
-            print ('txt', txt) 
-        elif (len(wBB) ==0 or len(cBB)==0 or len(txt)==0):
-           print("Problem Index=", index, ", Image name = ", name) 
-           ellist.append(index)
+        print("Index=", index, ", Image name = ", name)
+    #    if index == 10000:
+    #        print ('wBB', wBB)
+    #        print ('cBB', cBB)
+    #        print ('txt', txt) 
+        if (len(wBB) ==0 or len(cBB)==0 or len(txt)==0):
+            print("Problem Index=", index, ", Image name = ", name, 'txt len=', len(''.join(txt))) 
+            ellist.append(index)
         
+        elif(cBB.shape[2] !=len(''.join(txt))):
+            print('txt =', txt)
+            print("len CBB(",cBB.shape," is not equal len txt(", len(''.join(txt)), ")")
+            #ellist.append(index)
         elif(eye_check== True):
             
             
-            print("Index=", index, ", Image name = ", name)
+            print('txt = ',  txt)
 
             #wBB = wBB.reshape(-1, 4, 1)
             #cBB = cBB.reshape(-1, 4, 1)
@@ -306,10 +311,11 @@ def verify_mat(mat, index=None):
             img_box=vis(img_box, wBB, txt)
             cv2.destroyAllWindows()
             cv2.imshow('gtbox', img_box)
-            cv2.waitKey(1000)
+            cv2.waitKey(4000)
         else:
             
-            print("Index=", index, ", Image name = ", name)
+            #print("Index=", index, ", Image name = ", name)
+            print('txt= ',  txt)
             txt = preprocess_words(txt)
             cxc = ''.join((''.join(np.reshape(txt, (1, -1)).tolist()[0])).split())
 
@@ -332,7 +338,7 @@ def verify_mat(mat, index=None):
                     
                     ratio_str=ratio_str+" "+ str(round(ratio, 3))
                  
-                print("cidx ", cidx, " ,ratio_str = ", ratio_str)
+                #print("cidx ", cidx, " ,ratio_str = ", ratio_str)
                  
                     
 
@@ -408,7 +414,7 @@ def update_mat(mat, ellist):
         print ("All size are not matched ", texts[0]," ", len(wordBB[0])," ", len(charBB[0])," ", len(imgnames[0]))
      
 
-def show_box(mat, pic_name, , show=False):
+def show_box(mat, pic_name, show=False):
     print("Search PIC name", pic_name)
     
     imgnames=mat['imnames']
@@ -458,7 +464,7 @@ if (args.imgName !=''):
     pic_name = args.imgName
     index=show_box(mat, pic_name)
 else:
-    ellist=verify_mat(mat)
+    ellist=verify_mat(mat, eye_check=False)
     print(ellist)
 
     if len(ellist) !=0:

@@ -31,8 +31,9 @@ class XMLObject:
 
 class PersonInst:
   def isInside(self, wordbox, charbox):    
-      ratio=charbox.intersection(wordbox).area/charbox.area
-      if  ratio > 0.8:
+      self.ratio=charbox.intersection(wordbox).area/charbox.area
+      if  self.ratio > 0.8 :
+
           return True
       else: 
           return False
@@ -56,6 +57,37 @@ class PersonInst:
       self.wordbox=np.array([[a[0], a[2], a[4], a[6]], [a[1], a[3], a[5], a[7]]], np.float32)
       self.charbox=[]
       self.text=""
+      self.cBB_in_wBB=True
+      
+      self.ratio=0 
+      mratio=0
+      max_tpts=[]
+      for char_idx in charbox:
+          if char_idx.name == 'text':
+              b= np.zeros((8), dtype=np.int32)
+              #top Left
+              b[0] = char_idx.startx
+              b[1] = char_idx.starty
+              #top right
+              b[2] = char_idx.endx
+              b[3] = char_idx.starty
+              #bottom right
+              b[4] = char_idx.endx
+              b[5] = char_idx.endy
+              #bottom left
+              b[6] = char_idx.startx
+              b[7] = char_idx.endy
+              tpts=np.array([[b[0], b[1]], [b[2], b[3]], [b[4], b[5]], [b[6], b[7]]], np.int32)
+              #print("tpts ", tpts)
+              if self.isInside(Polygon(wpts), Polygon(tpts)):
+                  if self.ratio > mratio:
+                      mratio=self.ratio
+                      max_tpts=tpts
+
+      if mratio == 0:
+          print("wpts(", wpts,") enclose no tpts(", max_tpts, ")")
+          #sys.exit()
+
       for char_idx in charbox:
           if char_idx.name != 'text' and char_idx.name !='person':  
               b= np.zeros((8), dtype=np.int32)
@@ -74,17 +106,29 @@ class PersonInst:
               pts=np.array([[b[0], b[1]], [b[2], b[3]], [b[4], b[5]], [b[6], b[7]]], np.int32)             
                   
               if self.isInside(Polygon(wpts), Polygon(pts)):
-                  if self.charbox==[] or b[0]> self.charbox[0][0][0]:
+                  if mratio==0 or self.isInside(Polygon(max_tpts), Polygon(pts)):
+                    if self.charbox==[] or b[0]> self.charbox[0][0][0]:
                       self.text=self.text+char_idx.name
                       #self.charbox=np.append(self.charbox, [[b[0], b[2], b[4], b[6]], [b[1], b[3], b[5], b[7]]])
                       self.charbox.append(np.array([[b[0], b[2], b[4], b[6]], [b[1], b[3], b[5], b[7]]], np.float32))
-                  else:
+                    else:
                       self.text=char_idx.name+self.text
                       #self.charbox=np.append(self.charbox, [[b[0], b[2], b[4], b[6]], [b[1], b[3], b[5], b[7]]])
                       self.charbox.insert(0, np.array([[b[0], b[2], b[4], b[6]], [b[1], b[3], b[5], b[7]]], np.float32))  
-      if (self.text==""):
-        print("text equal null = ", self.text)                  
-  
+
+      print("txt =(", self.text,"), len=", len(self.text), 'char box len=', len(self.charbox))
+      if len(self.text) != len(self.charbox):
+          print("text len != charbox len")
+          sys.exit()
+      if ' ' in self.text:
+          print ('space inside txt ', self.text)
+      if (len(self.text)==0 or len(self.charbox)==0):
+            print("text equal null = ", self.text)
+            print("charbox", self.charbox)
+            print("No cBB inside wBB")
+            self.cBB_in_wBB=False
+            #sys.exit() 
+
 class XMLImage:
   def __init__ (self, imgEnt, img, imgpath, savePath=""):
     self.imgName=imgEnt.find('filename').text
@@ -106,6 +150,7 @@ class XMLImage:
     self.charBB=[]
     self.wordBB=[]
     self.text=[]
+    self.legal=True
     
     
     for obj in self.xmlObjList:
@@ -115,9 +160,12 @@ class XMLImage:
         if (obj.name == 'person'):
             Persion=PersonInst(obj, self.objList)
             #print("wb = ", Persion.wordbox, ", cb = ", Persion.charbox,", txt =" ,Persion.text)
-            self.charBB.extend(Persion.charbox)
-            self.wordBB.append(Persion.wordbox)
-            self.text.append(Persion.text)
+            if(Persion.cBB_in_wBB):
+                self.charBB.extend(Persion.charbox)
+                self.wordBB.append(Persion.wordbox)
+                self.text.append(Persion.text)
+            else:
+                self.legal=False
         #print("(",obj.startx, obj.starty, obj.endx, obj.endy, obj.name, ")", obj.endx-obj.startx, obj.endy - obj.starty, round((obj.endy - obj.starty)/(obj.endx-obj.startx),2))
     
     self.charBB=np.array(self.charBB)
@@ -185,18 +233,28 @@ def retrieve(imgPath, xmlPath, datapath):
               imgname=imgname.replace(imgPath+"/", '')
               print ("File Name: ", imgname)
               xmlImage=XMLImage(xmlfile, img, imgname , datapath)
-              imgnames=imgnames + [np.str_(imgname)]
-              charBB=charBB + [np.array(xmlImage.charBB)]
-              wordBB=wordBB + [np.array(xmlImage.wordBB)]
-              texts= texts + [np.array(xmlImage.text)]
+              if(xmlImage.legal):
+                imgnames=imgnames + [np.str_(imgname)]
+                charBB=charBB + [np.array(xmlImage.charBB)]
+                wordBB=wordBB + [np.array(xmlImage.wordBB)]
+                texts= texts + [np.array(xmlImage.text)]
+              else:
+                print('Image file ', imgname, ' is not legal. Remove it from dataset')
               #xmlImage.saveObjectImage()
             else:
               print('Image file ', imgname, ' is not existed. ')
               
     #imgnames=np.array(imgnames, dtype='object').reshape([1,-1,1]) 
+    for idx in range (len(charBB)):
+        print("issue idx", idx, 'char shape=', charBB[idx].shape, 'word shape', wordBB[idx].shape)
+            
     imgnames=np.array(imgnames, dtype='object').reshape([1,-1]) 
-    charBB=np.expand_dims(np.array(charBB, dtype='object'), axis=0)
-    wordBB=np.expand_dims(np.array(wordBB, dtype='object'), axis=0)
+    arrChar= np.empty(len(charBB), object) 
+    arrWord= np.empty(len(wordBB), object)
+    arrChar[:]=charBB
+    arrWord[:]=wordBB
+    charBB=np.expand_dims(arrChar, axis=0)
+    wordBB=np.expand_dims(arrWord, axis=0)
     texts=np.expand_dims(np.array(texts, dtype='object'), axis=0)
     
     
@@ -299,7 +357,7 @@ print(args.imgPath, args.xmlPath, args.datapath)
 
          
 mat=retrieve(args.imgPath, args.xmlPath, args.datapath)
-savemat("gt_basket.mat", mat)
+savemat("gt_game.mat", mat)
 #verify(mat)
 #drawBBox(args.imgPath, args.xmlPath, args.datapath)
 
