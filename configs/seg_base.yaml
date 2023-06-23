@@ -228,11 +228,79 @@ define:
 
 
 
+  - name: train_data_criminal
+    class: SynthDataset
+    data_dir:
+        - '/home/robtu/Github/data/criminal/metadata/'
+        #- './datasets/icdar2015/'
+    mat_list:
+        - '/home/robtu/Github/data/criminal/gt_criminal.mat'
+        #- './datasets/icdar2015/train_list.txt'
+    processes:
+        - class: AugmentDetectionData
+          augmenter_args:
+              #- ['Fliplr', 0.5]
+              #- {'cls': 'Affine', 'rotate': [0, 0]}
+              - {'cls': 'Affine', 'rotate': [-5, 5]}
+              # Resize each image’s height to 50-75% of its original size and width to either 16px or 32px or 64px:
+              # aug = iaa.Resize({"height": (0.5, 0.75), "width": [16, 32, 64]})
+              - ['Resize', {'width': 1024, 'height': 512}]
+              #- ['Resize', [720, 1280]]
+              #- ['Resize', [1, 1.5]]
+          only_resize: False
+          keep_ratio: False
+          #keep_ratio: True
+        - class: RandomCropData
+          #size: [640, 640]
+          size: [1024, 512]
+          max_tries: 10
+        - class: MakeICDARData
+#        - class: MakeSegDetectionData
+        - class: MakeBorderMap
+          charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
+        - class: NormalizeImage
+          norm_type: 'lib'
+        - class: FilterKeys
+#          superfluous: [ 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char']
+          #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+          #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+    mode: "train"
+    seqList: True
+    #snumber: 1000
+    #snumber: 10000
 
 
-
-
-
+  - name: valid_data_criminal
+    class: SynthDataset
+    data_dir:
+        - '/home/robtu/Github/data/criminal/metadata/'
+    mat_list:
+        - '/home/robtu/Github/data/criminal/gt_criminal.mat'
+    processes:
+        - class: AugmentDetectionData
+          augmenter_args:
+              - ['Resize', {'width': 1024, 'height': 512}]
+          only_resize: False
+          keep_ratio: False
+          #keep_ratio: True
+        - class: RandomCropData
+          size: [1024, 512]
+          max_tries: 10
+        - class: MakeICDARData
+        - class: MakeBorderMap
+          charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
+        - class: NormalizeImage
+          norm_type: 'lib'
+        - class: FilterKeys
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+          #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+    mode: "valid"
+    seqList: True
+    #snumber: 1000
+    #snumber: 10000
 
 
   - name: validate_data
@@ -253,6 +321,9 @@ define:
         - class: NormalizeImage
 
   - name: 'Experiment'
+    main:
+        train: train_criminal
+        valid: valid_criminal
     train: 
         class: TrainSettings
         data_loader: 
@@ -291,8 +362,8 @@ define:
             class: DataLoader
             dataset: ^train_data_game
             batch_size: 2
-            num_workers: 2
-        epochs: 60    
+            num_workers: 2   
+        epochs: 60
     valid_game: 
         class: TrainSettings
         data_loader: 
@@ -300,7 +371,23 @@ define:
             dataset: ^valid_data_game
             batch_size: 2
             num_workers: 2
-        epochs: 1   
+        epochs: 1
+    train_criminal: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^train_data_criminal
+            batch_size: 2
+            num_workers: 2   
+        epochs: 60
+    valid_criminal: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^valid_data_criminal
+            batch_size: 2
+            num_workers: 2
+        epochs: 1
         
         
         

@@ -290,7 +290,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             #pred_char_fg, pred_char_cls,
             #score_map_mask, score_map_char
             debug2= True     # Final Predict word/char boxes showing
-            #debug2= False     # Final Predict word/char boxes showing
+            debug2= False     # Final Predict word/char boxes showing
             if debug2:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
@@ -1039,14 +1039,20 @@ if __name__ == '__main__':
     
     cmd_in = vars(Trainsetting_conf.pop('cmd', dict()))
     cmd_in.update(is_train=True)
+    
+    main_cfg=Trainsetting_conf['Experiment']['main']
+    train_tag=main_cfg['train']
+    valid_tag=main_cfg['valid']
+    
     train_cfg=Trainsetting_conf['Experiment']['train']
     train_cfg.update(cmd=cmd_in)
     
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
-    train_synth_cfg=Trainsetting_conf['Experiment']['train_game']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['train_game']
+    train_synth_cfg=Trainsetting_conf['Experiment'][train_tag]
     train_synth_cfg.update(cmd=cmd_in)
-    
+   
     train_img_loader = Configurable.construct_class_from_config(train_cfg)
     train_synth_img_loader = Configurable.construct_class_from_config(train_synth_cfg)
     

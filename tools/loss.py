@@ -243,7 +243,7 @@ class char_reg_loss(nn.Module):
                 pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
                 pctxts=word_instances[pic_idx][wrd_idx].text
                 if (len(pcboxs) != len(pctxts)):
-                    print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+                    print("ERROR: Predit Cbox length difference, pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
                     sys.exit()
 
                 for char_idx in range(len(pcboxs)): #pred char box within word

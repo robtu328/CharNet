@@ -455,13 +455,20 @@ if __name__ == '__main__':
     
     cmd_in = vars(Trainsetting_conf.pop('cmd', dict()))
     cmd_in.update(is_train=True)
+    
+    main_cfg=Trainsetting_conf['Experiment']['main']
+    train_tag=main_cfg['train']
+    valid_tag=main_cfg['valid']
+    
     train_cfg=Trainsetting_conf['Experiment']['train']
     train_cfg.update(cmd=cmd_in)
  
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_synth']
     #train_synth_cfg=Trainsetting_conf['Experiment']['train_basket']
     #train_synth_cfg=Trainsetting_conf['Experiment']['valid_basket']
-    train_synth_cfg=Trainsetting_conf['Experiment']['valid_game']
+    #train_synth_cfg=Trainsetting_conf['Experiment']['valid_game']
+    train_synth_cfg=Trainsetting_conf['Experiment'][valid_tag]
+
     train_synth_cfg.update(cmd=cmd_in)
     
     train_img_loader = Configurable.construct_class_from_config(train_cfg)

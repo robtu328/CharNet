@@ -6,6 +6,7 @@
 # This source code is licensed under the LICENSE file in the root directory of this source tree.
 
 from yacs.config import CfgNode as CN
+from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
 
 
 _C = CN()
@@ -32,3 +33,7 @@ _C.NUM_CHAR_CLASSES = 68
 
 _C.WORD_DETECTOR_DILATION = 1
 _C.RESULTS_SEPARATOR = chr(31)
+#_C.reg_mode = 'cnn'
+_C.reg_mode = 'dcn'
+_C.backbone_mode = 'hourglass88'
+#_C.backbone_mode = 'hourglass88GCN'

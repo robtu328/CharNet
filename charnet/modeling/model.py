@@ -99,7 +99,7 @@ class CharDetector(nn.Module):
 
 
 class CharRecognizer(nn.Module):
-    def __init__(self, in_channels, bottleneck_channels, num_classes):
+    def __init__(self, in_channels, bottleneck_channels, num_classes, mode='cnn'):
         super(CharRecognizer, self).__init__()
 
         self.body = nn.Sequential(
@@ -117,19 +117,27 @@ class CharRecognizer(nn.Module):
                         group=4, offset_scale=1.0, act_layer='GELU', norm_layer='LN',
                         dw_kernel_size=None, center_feature_scale=False, imgFmt='CHW'),
             Residual(bottleneck_channels, num_classes, stride=1)    #channels in= 128, channels out=256
-        ) 
+        )
+        self.mode=mode
 
     def forward(self, feat):
         feat = self.body(feat)
-        #return self.classifier(feat)
-        return self.dcn(feat)
+        if self.mode=='cnn':
+            return self.classifier(feat)
+        else:
+            return self.dcn(feat)
 
 class CharNet(nn.Module):
-    def __init__(self, backbone=hourglass88()):
+    def __init__(self, reg_mode='cnn'):
     #def __init__(self, backbone=hourglass88GCN()):
 
         super(CharNet, self).__init__()
-        self.backbone = backbone
+        #self.backbone = backbone
+        if cfg.backbone_mode == 'hourglass88GCN':
+            self.backbone = hourglass88GCN()
+        else:
+            self.backbone = hourglass88()
+
         decoder_channels = 256
         bottleneck_channels = 128
         self.word_detector = WordDetector(
@@ -140,9 +148,13 @@ class CharNet(nn.Module):
             decoder_channels,
             bottleneck_channels
         )
+        if cfg.reg_mode=="":
+           cfg.reg_mode=reg_mode
+
         self.char_recognizer = CharRecognizer(
             decoder_channels, bottleneck_channels,
-            num_classes=cfg.NUM_CHAR_CLASSES
+            num_classes=cfg.NUM_CHAR_CLASSES,
+            mode=cfg.reg_mode
         )
 
         args = {
