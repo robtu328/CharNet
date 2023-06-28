@@ -8,10 +8,36 @@ This project hosts the testing code for CharNet, described in our paper:
 
    
 ## Installation
+Package dependecy by using Anaconda
+Envirnment build up by using conda commands.
 
 ```
-pip install torch torchvision
-python setup.py build develop
+conda create --name cda113 python=3.8
+conda activate cda113
+
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+conda install -c conda-forge opencv
+conda install -c anaconda pyyaml
+conda install -c conda-forge tqdm
+conda install -c conda-forge tensorboardX
+conda install -c conda-forge editdistance
+conda install -c conda-forge anyconfig
+conda install -c conda-forge munch
+conda install -c anaconda scipy
+conda install -c anaconda scikit-learn
+conda install -c conda-forge shapely
+conda install -c conda-forge pyclipper
+conda install -c anaconda gevent
+conda install -c anaconda gevent-websocket
+conda install -c anaconda flask
+conda install -c conda-forge imgaug
+conda install -c conda-forge h5py
+conda install -c conda-forge gputil
+conda install -c conda-forge pympler
+conda install -c anaconda cython
+conda install -c conda-forge yacs
+conda install -c conda-forge psutil
+
 ```
 
 ## Install Synthdata
