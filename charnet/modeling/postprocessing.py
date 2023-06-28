@@ -68,7 +68,7 @@ class OrientedTextPostProcessing(nn.Module):
             word_nms_iou_thresh, char_stride,
             char_min_score, num_char_class,
             char_nms_iou_thresh, char_dict_file,
-            word_lexicon_path
+            word_lexicon_path, word_box_mode
     ):
         super(OrientedTextPostProcessing, self).__init__()
         self.word_min_score = word_min_score
@@ -81,6 +81,7 @@ class OrientedTextPostProcessing(nn.Module):
         self.char_dict = load_char_dict(char_dict_file)
         self.char_rev_dict = load_char_rev_dict(char_dict_file)
         self.lexicon = load_lexicon(word_lexicon_path)
+        self.word_box_mode=word_box_mode
 
     def forward(
             self, pred_word_fg, pred_word_tblr,
@@ -95,7 +96,8 @@ class OrientedTextPostProcessing(nn.Module):
         )
         char_bboxes, char_scores = self.parse_char_torch(
             pred_word_fg, pred_char_fg, pred_char_tblr, pred_char_cls,
-            im_scale_w, im_scale_h, original_im_w, original_im_h
+            im_scale_w, im_scale_h, original_im_w, original_im_h,
+            valid_boxes
         )
         word_instances = self.parse_words(
             ss_word_bboxes, char_bboxes,
@@ -156,10 +158,10 @@ class OrientedTextPostProcessing(nn.Module):
              poolmax = np.amax(oriented_word_bboxes[pool,8])
              maxbox = np.where(oriented_word_bboxes[pool,8][0] == poolmax)
              maxidx = pool[0][maxbox[0][0]]
-             valid_boxes.append([maxidx, np.array([[oriented_word_bboxes[maxidx][1], oriented_word_bboxes[maxidx][0]],\
-                                                   [oriented_word_bboxes[maxidx][3], oriented_word_bboxes[maxidx][2]],\
-                                                   [oriented_word_bboxes[maxidx][5], oriented_word_bboxes[maxidx][4]],\
-                                                   [oriented_word_bboxes[maxidx][7], oriented_word_bboxes[maxidx][6]]])])
+             valid_boxes.append([maxidx, np.array([[oriented_word_bboxes[maxidx][0], oriented_word_bboxes[maxidx][1]],\
+                                                   [oriented_word_bboxes[maxidx][2], oriented_word_bboxes[maxidx][3]],\
+                                                   [oriented_word_bboxes[maxidx][4], oriented_word_bboxes[maxidx][5]],\
+                                                   [oriented_word_bboxes[maxidx][6], oriented_word_bboxes[maxidx][7]]])])
  
    
         keep, oriented_word_bboxes = nms(oriented_word_bboxes, self.word_nms_iou_thresh, num_neig=1)
@@ -216,15 +218,31 @@ class OrientedTextPostProcessing(nn.Module):
     def parse_char_torch(
             self, pred_word_fg, pred_char_fg,
             pred_char_tblr, pred_char_cls,
-            scale_w, scale_h, W, H
+            scale_w, scale_h, W, H,
+            valid_boxes
     ):
         char_stride = self.char_stride
-        if pred_word_fg.shape == pred_char_fg.shape:
+        
+        word_h,word_w=pred_word_fg.shape
+        pred_score_map=np.zeros((H, W), dtype=np.float32)
+        for wbox in valid_boxes:
+            cv2.fillPoly(pred_score_map, [wbox[1].astype('int32')], 1)
+        
+        
+        #word_box_mode='pixel'
+        #word_box_mode='box'
+        
+        if self.word_box_mode == 'pixel':    
+            pred_word_fg_sel=pred_word_fg
+        else:
+            pred_word_fg_sel=pred_score_map
+        
+        if pred_word_fg_sel.shape == pred_char_fg.shape:
             char_keep_rows, char_keep_cols = np.where(
-                (pred_word_fg > self.word_min_score) & (pred_char_fg > self.char_min_score))
+                (pred_word_fg_sel > self.word_min_score) & (pred_char_fg > self.char_min_score))
         else:
             th, tw = pred_char_fg.shape
-            word_fg_mask = cv2.resize((pred_word_fg > self.word_min_score).astype(np.uint8),
+            word_fg_mask = cv2.resize((pred_word_fg_sel > self.word_min_score).astype(np.uint8),
                                       (tw, th), interpolation=cv2.INTER_NEAREST).astype(np.bool)
             char_keep_rows, char_keep_cols = np.where(
                 word_fg_mask & (pred_char_fg > self.char_min_score))

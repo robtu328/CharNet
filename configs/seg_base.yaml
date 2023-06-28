@@ -331,6 +331,9 @@ define:
             dataset: ^train_data
             batch_size: 16
             num_workers: 16
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 100
     train_synth: 
         class: TrainSettings
@@ -339,6 +342,9 @@ define:
             dataset: ^train_data_synth
             batch_size: 2
             num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 100
     train_basket: 
         class: TrainSettings
@@ -347,6 +353,9 @@ define:
             dataset: ^train_data_basket
             batch_size: 2
             num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 60    
     valid_basket: 
         class: TrainSettings
@@ -355,6 +364,9 @@ define:
             dataset: ^valid_data_basket
             batch_size: 2
             num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 1   
     train_game: 
         class: TrainSettings
@@ -362,7 +374,10 @@ define:
             class: DataLoader
             dataset: ^train_data_game
             batch_size: 2
-            num_workers: 2   
+            num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 60
     valid_game: 
         class: TrainSettings
@@ -371,6 +386,9 @@ define:
             dataset: ^valid_data_game
             batch_size: 2
             num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 1
     train_criminal: 
         class: TrainSettings
@@ -379,6 +397,9 @@ define:
             dataset: ^train_data_criminal
             batch_size: 2
             num_workers: 2   
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 60
     valid_criminal: 
         class: TrainSettings
@@ -387,6 +408,9 @@ define:
             dataset: ^valid_data_criminal
             batch_size: 2
             num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
         epochs: 1
         
         

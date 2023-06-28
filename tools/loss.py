@@ -227,6 +227,7 @@ class char_reg_loss(nn.Module):
             self.char_dict_reverse[v] = k 
         #self.loss = nn.CrossEntropyLoss(reduction='sum')
         self.loss = nn.CrossEntropyLoss()
+        self.loss_lenbx_eq_lentx_chk=cfg.loss_lenbx_eq_lentx_chk
         self.debug = False
         
         
@@ -244,7 +245,11 @@ class char_reg_loss(nn.Module):
                 pctxts=word_instances[pic_idx][wrd_idx].text
                 if (len(pcboxs) != len(pctxts)):
                     print("ERROR: Predit Cbox length difference, pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
-                    sys.exit()
+                    if self.loss_lenbx_eq_lentx_chk:
+                        sys.exit()
+                    else:
+                        return 0, 0, 0, 0
+                    #sys.exit()
 
                 for char_idx in range(len(pcboxs)): #pred char box within word
                     #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
@@ -300,6 +305,7 @@ class char_reg_lossV2(nn.Module):
             self.char_dict_reverse[v] = k 
         #self.loss = nn.CrossEntropyLoss(reduction='sum')
         self.loss = nn.CrossEntropyLoss()
+        self.loss_lenbx_eq_lentx_chk=cfg.loss_lenbx_eq_lentx_chk
         self.debug = False
         
         
@@ -338,8 +344,13 @@ class char_reg_lossV2(nn.Module):
                         pcboxs=word_instances[pic_idx][wrd_idx].char_bboxes
                         pctxts=word_instances[pic_idx][wrd_idx].text
                         if (len(pcboxs) != len(pctxts)):
-                            print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
-                            sys.exit()
+                            #print("pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+                            print("ERROR: Predit Cbox length difference, pcboxs len = ", len(pcboxs), 'pctxts len = ', len(pctxts), 'txt =', pctxts)
+                            
+                            if self.loss_lenbx_eq_lentx_chk:
+                                sys.exit()
+                            else:
+                                return 0, 0, 0, 0
 
                         for char_idx in range(len(pcboxs)): #pred char box within word
                             #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')

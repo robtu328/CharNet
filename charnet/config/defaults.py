@@ -37,3 +37,6 @@ _C.RESULTS_SEPARATOR = chr(31)
 _C.reg_mode = 'dcn'
 _C.backbone_mode = 'hourglass88'
 #_C.backbone_mode = 'hourglass88GCN'
+#_C.word_box_mode = 'box'
+_C.word_box_mode = 'pixel'
+_C.loss_lenbx_eq_lentx_chk = True

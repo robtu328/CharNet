@@ -108,7 +108,7 @@ def params_gen( net):
     return params
 
 
-def validate_model( charnet, args, cfg, img_loader, debug=False):
+def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
        
     #debug=True
     
@@ -176,9 +176,8 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             pred_word_fg_clip = torch.where(pred_word_fg_sq > 0.9, 1.0, 0.0)#.cpu().numpy()
             pred_char_fg_clip = torch.where(pred_char_fg_sq > 0.25, 1.0, 0.0)#.cpu().numpy()
 
-            debug4=True
-            debug4=False
-            if debug4:
+            #debug_class  ground truth word class and char class 
+            if valid_cfg['debug_class']:
                 print("Image Path", img_loader.dataset.image_paths[indexes[0]])
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, score_map[0].cpu().numpy().astype('uint8'))
@@ -192,9 +191,8 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 cv2.imshow("score_map_char", blend_char_img)
                 cv2.waitKey()
                 
-            debug3=True
-            #debug3=False
-            if debug3:  # Predict word/char classes showing 
+            #debug_class  predict word class and char class 
+            if valid_cfg['debug_class']:  # Predict word/char classes showing 
                 img=invTrans.lib_inv_trans(images[0])
                 blend_img=blending_two_imgs(img, pred_word_fg_clip[0].cpu().numpy().astype('uint8'), 0.5, 0.5)
                 #cv2.destroyAllWindows()
@@ -204,7 +202,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 #blend_char_img=blending_two_imgs(img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'))
                 blend_char_img=blending_two_imgs(blend_img, pred_char_fg_clip[0].cpu().numpy().astype('uint8'), 0.5, 0.5)
                 cv2.destroyAllWindows()
-                cv2.imshow("pred_char_fg", blend_char_img)
+                cv2.imshow("pred_wordchar_fg", blend_char_img)
                 cv2.waitKey()
 
             
@@ -226,9 +224,8 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             
 
             
-            debug1=True
-            debug1=False    # Predict word/char boxes showing        
-            if debug1:
+            # ground truth and Predict word/char boxes showing        
+            if valid_cfg['debug_box']:
                 img=invTrans.lib_inv_trans(images[0])
                 ic, ih, iw= images[0].shape
                 bbox_gt=bonding_box_plane(geo_map, 'ground')
@@ -277,9 +274,8 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
 
-            debug2= True     # Final Predict word/char boxes showing
-            #debug2= False     # Final Predict word/char boxes showing
-            if debug2:
+            #debug_out Final Predict word/char boxes showing
+            if train_cfg['debug_out']:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
                 img=invTrans.lib_inv_trans(images[0])

@@ -166,7 +166,8 @@ class CharNet(nn.Module):
             "num_char_class": cfg.NUM_CHAR_CLASSES,
             "char_nms_iou_thresh": cfg.CHAR_NMS_IOU_THRESH,
             "char_dict_file": cfg.CHAR_DICT_FILE,
-            "word_lexicon_path": cfg.WORD_LEXICON_PATH
+            "word_lexicon_path": cfg.WORD_LEXICON_PATH,
+            "word_box_mode": cfg.word_box_mode
         }
 
         self.post_processing = OrientedTextPostProcessing(**args)
