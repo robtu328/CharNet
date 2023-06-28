@@ -31,19 +31,23 @@ Please copy dataset/SynthText/gtsub.mat to SynthText directory
 
 
 ## Run
-1. Please run `bash download_weights.sh` to download our trained weights. 
+#1. Please run `bash download_weights.sh` to download our trained weights. 
 
-2. For SynthText please run command file belw. 
+Training
+1. For SynthText/Jersey/Criminal please run command file belw. 
  
    ```
    python tools/train_net.py configs/icdar2015_hourglass88.yaml ../data/icdar2015/test_images /home/robtu/Github/CharNet/result/.    
    ``` 
-#2. For ICDAR 2015, please run the following command line. Please replace `images_dir` with the directory containing ICDAR 2015 testing images. The results will be in `results_dir`.
+2. For ICDAR 2015, please run the following command line. Please replace `images_dir` with the directory containing ICDAR 2015 testing images. The results will be in `results_dir`.
 
-#    ```
+Validation
+python ./tools/valid_net.py configs/icdar2015_hourglass88.yaml ../data/icdar2015/test_images /home/robtu/Github/CharNet/result/.
+    ```
+    python ./tools/valid_net.py configs/icdar2015_hourglass88.yaml ../data/icdar2015/test_images /home/robtu/Github/CharNet/result/.
+    ```
+    
 #    python tools/test_net.py configs/icdar2015_hourglass88.yaml <images_dir> <results_dir>
-#    ```
-
 
 ## Citation
 
