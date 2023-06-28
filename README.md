@@ -79,6 +79,8 @@ Validation
 
 ## Configuration files
 1. ./config/icdar2015_hourglass88.yaml
+Parameter WEIGHT means the loaded model directory setting. It's useful for the continuouse training from a unfinished traning process.
+Parameter CHAR_DICT_FILE is the character mapping table
    ```
     INPUT_SIZE: 2280
     #WEIGHT: "weights/icdar2015_hourglass88.pth"
@@ -92,19 +94,189 @@ Validation
     SIZE_DIVISIBILITY: 128
        
    ``` 
-2. ./config/seg_base.yaml
+3. ./config/seg_base.yaml
+   Configuration for dataset pre/post process
+   Strated from 'Experiment' section.
+   Please check the remark within the code. 
    ```
-       
+    - name: train_data_game
+      class: SynthDataset
+      data_dir:
+        - '/home/robtu/Github/data/games/metadata/'        #directory of dataset image. 
+        
+      mat_list:
+        - '/home/robtu/Github/data/games/gt_game.mat'      #file of dataset information, including bonding box, text line. . 
+      processes:                                           #pre-process of the image in the dataset. 
+        - class: AugmentDetectionData
+          augmenter_args:
+              #- ['Fliplr', 0.5]                           #Flip     
+              - {'cls': 'Affine', 'rotate': [-5, 5]}       #Rotate
+              # Resize each image’s height to 50-75% of its original size and width to either 16px or 32px or 64px:
+              # aug = iaa.Resize({"height": (0.5, 0.75), "width": [16, 32, 64]})
+              - ['Resize', {'width': 1024, 'height': 512}] #Resize
+          only_resize: False
+          keep_ratio: False                                #keep image width/height ratio or  not. 
+          #keep_ratio: True
+        - class: RandomCropData
+          size: [1024, 512]                                #Random Crop image. 
+          max_tries: 10
+        - class: MakeICDARDat
+        - class: MakeBorderMap
+          charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
+        - class: NormalizeImage
+          norm_type: 'lib'
+        - class: FilterKeys
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
+      mode: "train"
+      seqList: True                                        #random image index or not. 
+      #snumber: 1000                                       #use partial of dataset. 
+      #snumber: 10000
+
+   - name: valid_data_game
+     class: SynthDataset
+     data_dir:
+       - '/home/robtu/Github/data/games/metadata/'
+     mat_list:
+       - '/home/robtu/Github/data/games/gt_game.mat'
+     processes:
+       - class: AugmentDetectionData
+         augmenter_args:
+              - ['Resize', {'width': 1024, 'height': 512}]
+          only_resize: False
+          keep_ratio: False
+          #keep_ratio: True
+        - class: RandomCropData
+          size: [1024, 512]
+          max_tries: 10
+        - class: MakeICDARData
+        - class: MakeBorderMap
+          charindx: 'datasets/ICDAR2015/test/char_dict.txt'  
+          yamlfile: 'datasets/ICDAR2015/test/rect_bbox.yaml'
+        - class: NormalizeImage
+          norm_type: 'lib'
+        - class: FilterKeys
+          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char'
+      mode: "valid"
+      seqList: True
+      #snumber: 1000
+      #snumber: 10000
+ 
+   - name: 'Experiment'
+     main:
+        train: train_game                            #train_basket, train_game, train_criminal   (3 datasets. )
+        valid: valid_game                            #valid_basket, valid_game, valid_criminal   (3 datasets. )
+     train_game: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^train_data_game
+            batch_size: 2                            # batch size
+            num_workers: 2
+        debug_out: False                             # final result cv2.imshow
+        debug_class: False                           # word/char class checking cv2.imshow
+        debug_box: False                             # word/char bonding box checking cv2.imshow
+        epochs: 60
+    valid_game: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^valid_data_game
+            batch_size: 2
+            num_workers: 2
+        debug_out: False
+        debug_class: False
+        debug_box: False
+        epochs: 1       
    ``` 
-3. ./charnet/config/default.py
+5. ./charnet/config/default.py
+   Configuration for model behavior. Architecture change in DCN needs to be configured here. 
+   
    ```
-       
+    from yacs.config import CfgNode as CN
+    from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN
+
+
+    _C = CN()
+
+    _C.INPUT_SIZE = 2280
+    _C.SIZE_DIVISIBILITY = 1
+    _C.WEIGHT= ""
+
+    _C.CHAR_DICT_FILE = ""
+    _C.WORD_LEXICON_PATH = ""
+
+    #_C.WORD_MIN_SCORE = 0.95
+    _C.WORD_MIN_SCORE = 0.9
+    _C.WORD_NMS_IOU_THRESH = 0.15
+    #_C.CHAR_MIN_SCORE = 0.9
+    _C.CHAR_MIN_SCORE = 0.25
+    _C.CHAR_NMS_IOU_THRESH = 0.3
+    #_C.CHAR_NMS_IOU_THRESH = 0.1
+    _C.MAGNITUDE_THRESH = 0.2
+
+    _C.WORD_STRIDE = 4
+    _C.CHAR_STRIDE = 4
+    _C.NUM_CHAR_CLASSES = 68
+
+    _C.WORD_DETECTOR_DILATION = 1
+    _C.RESULTS_SEPARATOR = chr(31)
+    #_C.reg_mode = 'cnn'                        #Recognization branch use  Conv2d 
+    _C.reg_mode = 'dcn'                         #Recognization branch use  Conv2d 
+    _C.backbone_mode = 'hourglass88'            #original hourglass backbone
+    #_C.backbone_mode = 'hourglass88GCN'        #replace Conv2d at beginning of hourglass by using DCN
+    #_C.word_box_mode = 'box'                   #postprocess valid char class refer to predict word bonding box
+    _C.word_box_mode = 'pixel'                  #postprocess valid char class refer to predict word class
+    _C.loss_lenbx_eq_lentx_chk = True           #loss calculation check unmatched charbox size and text length exit to sys or not. 
    ``` 
-4. 3q424
+   
 
 
 ## Dataset
+Dataset is in matllab format
 
+Example code for read mat filel 
+   ```
+    import scipy.io
+
+
+    data_dir='/home/robtu/Github/data/SynthText/SynthText/'
+    mat_list='gt.mat'
+
+    print("Load Mat file ", data_dir)
+    mat = scipy.io.loadmat(data_dir+mat_list)
+    print("Done...")
+
+    image_list = mat['imnames'][0]                        #image path within dataset
+    gt_word_list = mat['wordBB'][0]                       #WORD bonding box
+    gt_char_list = mat['charBB'][0]                       #CHAR bonding box
+    txt_list = mat['txt'][0]                              #CHAR text
+
+    dbLen = len(image_list)
+
+   ``` 
+There is a program to  conver xml dataset format to mat format. 
+./tool/XML2mat.py # convert xml format to matlab format 
+ -i image directory
+ -x xml directory
+ The structure of dataset. 
+ Image directory
+ ./metadata/image/[sub-dir1]
+ ./metadata/image/[sub-dir2]
+ ./metadata/image/[sub-dir3]
+ XML directory
+ ./metadata/XML/[sub-dir1]
+ ./metadata/XML/[sub-dir2]
+ ./metadata/XML/[sub-dir3]
+
+sub-dir1/2/3 within image direcoty and xml directory needs to be thes same
+   ```
+    python ./XML2mat.py -i ./metadata -x ./metadata ./
+   ``` 
+There is a program to check mat file data correct or not. 
+./tool/matVerify.py # verify mat format legal or not.  
+
+    
 
 ## Dataset mat file preparation
 
