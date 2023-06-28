@@ -53,16 +53,16 @@ python ./tools/valid_net.py configs/icdar2015_hourglass88.yaml ../data/icdar2015
 ## Configuration files
 1. ./config/icdar2015_hourglass88.yaml
    ```
-INPUT_SIZE: 2280
-#WEIGHT: "weights/icdar2015_hourglass88.pth"
-#WEIGHT: "weights/model_save.pth"
-#WEIGHT: "weights/model_save_dcn.pth"
-#WEIGHT: "weights/model_save_dcnReg.pth"
-#WEIGHT: ""
-CHAR_DICT_FILE: "datasets/ICDAR2015/test/char_dict.txt"
-WORD_LEXICON_PATH: "datasets/ICDAR2015/test/GenericVocabulary.txt"
-RESULTS_SEPARATOR: ","
-SIZE_DIVISIBILITY: 128
+    INPUT_SIZE: 2280
+    #WEIGHT: "weights/icdar2015_hourglass88.pth"
+    #WEIGHT: "weights/model_save.pth"
+    #WEIGHT: "weights/model_save_dcn.pth"
+    #WEIGHT: "weights/model_save_dcnReg.pth"
+    #WEIGHT: ""
+    CHAR_DICT_FILE: "datasets/ICDAR2015/test/char_dict.txt"
+    WORD_LEXICON_PATH: "datasets/ICDAR2015/test/GenericVocabulary.txt"
+    RESULTS_SEPARATOR: ","
+    SIZE_DIVISIBILITY: 128
        
    ``` 
 2. ./config/seg_base.yaml
