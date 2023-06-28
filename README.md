@@ -257,17 +257,17 @@ Example code for read mat filel
    ``` 
 There is a program to  conver xml dataset format to mat format. 
 ./tool/XML2mat.py # convert xml format to matlab format 
- -i image directory
- -x xml directory
- The structure of dataset. 
- Image directory
- ./metadata/image/[sub-dir1]
- ./metadata/image/[sub-dir2]
- ./metadata/image/[sub-dir3]
- XML directory
- ./metadata/XML/[sub-dir1]
- ./metadata/XML/[sub-dir2]
- ./metadata/XML/[sub-dir3]
+     -i image directory
+     -x xml directory
+The structure of dataset. 
+     Image directory
+     ./metadata/image/[sub-dir1]
+     ./metadata/image/[sub-dir2]
+     ./metadata/image/[sub-dir3]
+     XML directory
+     ./metadata/XML/[sub-dir1]
+     ./metadata/XML/[sub-dir2]
+     ./metadata/XML/[sub-dir3]
 
 sub-dir1/2/3 within image direcoty and xml directory needs to be thes same
    ```
@@ -278,7 +278,7 @@ There is a program to check mat file data correct or not.
    ```
     python ./matVerify.py  gt_game.mat    #verify mat fille gt_game.mat
    ``` 
-T
+Criminal dataset conversion uses XML2mat_Criminal.py and matVerify_Criminal.py
     
 
 ## Dataset mat file preparation
