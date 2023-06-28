@@ -261,13 +261,13 @@ There is a program to  conver xml dataset format to mat format.
      -x xml directory
 The structure of dataset. 
      Image directory
-     ./metadata/image/[sub-dir1]
-     ./metadata/image/[sub-dir2]
-     ./metadata/image/[sub-dir3]
+         ./metadata/image/[sub-dir1]
+         ./metadata/image/[sub-dir2]
+         ./metadata/image/[sub-dir3]
      XML directory
-     ./metadata/XML/[sub-dir1]
-     ./metadata/XML/[sub-dir2]
-     ./metadata/XML/[sub-dir3]
+         ./metadata/XML/[sub-dir1]
+         ./metadata/XML/[sub-dir2]
+         ./metadata/XML/[sub-dir3]
 
 sub-dir1/2/3 within image direcoty and xml directory needs to be thes same
    ```
