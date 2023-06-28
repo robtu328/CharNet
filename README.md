@@ -271,11 +271,14 @@ There is a program to  conver xml dataset format to mat format.
 
 sub-dir1/2/3 within image direcoty and xml directory needs to be thes same
    ```
-    python ./XML2mat.py -i ./metadata -x ./metadata ./
+    python ./XML2mat.py -i ./metadata -x ./metadata ./    #-i image directory is at ./metadata, -x xml directory is at ./metadata mat file is at ./
    ``` 
 There is a program to check mat file data correct or not. 
 ./tool/matVerify.py # verify mat format legal or not.  
-
+   ```
+    python ./matVerify.py  gt_game.mat    #verify mat fille gt_game.mat
+   ``` 
+T
     
 
 ## Dataset mat file preparation
