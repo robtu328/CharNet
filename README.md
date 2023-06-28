@@ -256,6 +256,7 @@ Example code for read mat filel
 
    ``` 
 There is a program to  conver xml dataset format to mat format. 
+   ```
 ./tool/XML2mat.py # convert xml format to matlab format 
      -i image directory
      -x xml directory
@@ -268,7 +269,7 @@ The structure of dataset.
          ./metadata/XML/[sub-dir1]
          ./metadata/XML/[sub-dir2]
          ./metadata/XML/[sub-dir3]
-
+   ``` 
 sub-dir1/2/3 within image direcoty and xml directory needs to be thes same
    ```
     python ./XML2mat.py -i ./metadata -x ./metadata ./    #-i image directory is at ./metadata, -x xml directory is at ./metadata mat file is at ./
