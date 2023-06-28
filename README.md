@@ -49,6 +49,39 @@ python ./tools/valid_net.py configs/icdar2015_hourglass88.yaml ../data/icdar2015
     
 #    python tools/test_net.py configs/icdar2015_hourglass88.yaml <images_dir> <results_dir>
 
+
+## Configuration files
+1. ./config/icdar2015_hourglass88.yaml
+   ```
+INPUT_SIZE: 2280
+#WEIGHT: "weights/icdar2015_hourglass88.pth"
+#WEIGHT: "weights/model_save.pth"
+#WEIGHT: "weights/model_save_dcn.pth"
+#WEIGHT: "weights/model_save_dcnReg.pth"
+#WEIGHT: ""
+CHAR_DICT_FILE: "datasets/ICDAR2015/test/char_dict.txt"
+WORD_LEXICON_PATH: "datasets/ICDAR2015/test/GenericVocabulary.txt"
+RESULTS_SEPARATOR: ","
+SIZE_DIVISIBILITY: 128
+       
+   ``` 
+2. ./config/seg_base.yaml
+   ```
+       
+   ``` 
+3. ./charnet/config/default.py
+   ```
+       
+   ``` 
+4. 3q424
+
+
+## Dataset
+
+
+## Dataset mat file preparation
+
+
 ## Citation
 
 If you find this work useful for your research, please cite as:
