@@ -243,7 +243,7 @@ class OrientedTextPostProcessing(nn.Module):
         else:
             th, tw = pred_char_fg.shape
             word_fg_mask = cv2.resize((pred_word_fg_sel > self.word_min_score).astype(np.uint8),
-                                      (tw, th), interpolation=cv2.INTER_NEAREST).astype(np.bool)
+                                      (tw, th), interpolation=cv2.INTER_NEAREST).astype(np.bool_)
             char_keep_rows, char_keep_cols = np.where(
                 word_fg_mask & (pred_char_fg > self.char_min_score))
 
@@ -433,7 +433,10 @@ class OrientedTextPostProcessing(nn.Module):
             char_vecs = (char_bboxes.reshape((-1, 4, 2)) - word_bbox[0:2]).mean(axis=1)
             proj = char_vecs.dot(word_vec)
             order = np.argsort(proj)
+            #print("cbox size =", char_bboxes.size())
+            #print("order", order)
             text, score = decode(char_scores[order])
+            #print("text", text)
             return text, score, char_scores[order]
 
         word_bbox_scores = word_bboxes[:, 8] #get box score

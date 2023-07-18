@@ -71,6 +71,8 @@ define:
           #superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training', 'polygons_char', 'ignore_tags_char', 'thresh_mask_char', 'thresh_map_char', 'thresh_mask', 'thresh_map', 'mask', 'gt_char', 'mask_char', 'gt', 'ignore_tags_char', 'polygons_char']
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
+    seqList: True
+    data_ratio: "R811"
     
     #snumber: 1000
     #snumber: 10000
@@ -114,7 +116,8 @@ define:
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
-    #seqList: True
+    seqList: True
+    data_ratio: "R811"
     #snumber: 1000
     #snumber: 10000
 
@@ -145,7 +148,8 @@ define:
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "valid"
-    seqList: True
+    seqList: False
+    data_ratio: "R811"
     #snumber: 1000
     #snumber: 10000
 
@@ -191,7 +195,9 @@ define:
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
-    seqList: True
+    nList: True
+    seqList: False
+    data_ratio: "R811"
     #snumber: 1000
     #snumber: 10000
 
@@ -222,7 +228,9 @@ define:
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "valid"
-    seqList: True
+    seqList: False
+    nList: False
+    data_ratio: "R811"
     #snumber: 1000
     #snumber: 10000
 
@@ -231,10 +239,10 @@ define:
   - name: train_data_criminal
     class: SynthDataset
     data_dir:
-        - '/home/robtu/Github/data/criminal/metadata/'
+        - '/home/robtu/Github/data/criminalv2/metadata/'
         #- './datasets/icdar2015/'
     mat_list:
-        - '/home/robtu/Github/data/criminal/gt_criminal.mat'
+        - '/home/robtu/Github/data/criminalv2/gt_criminal_train.mat'
         #- './datasets/icdar2015/train_list.txt'
     processes:
         - class: AugmentDetectionData
@@ -268,6 +276,9 @@ define:
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "train"
     seqList: True
+    nList: False
+    data_ratio: "ALL"
+      #data_ratio: "R811"
     #snumber: 1000
     #snumber: 10000
 
@@ -275,9 +286,9 @@ define:
   - name: valid_data_criminal
     class: SynthDataset
     data_dir:
-        - '/home/robtu/Github/data/criminal/metadata/'
+        - '/home/robtu/Github/data/criminalv2/metadata/'
     mat_list:
-        - '/home/robtu/Github/data/criminal/gt_criminal.mat'
+        - '/home/robtu/Github/data/criminalv2/gt_criminal_valid.mat'
     processes:
         - class: AugmentDetectionData
           augmenter_args:
@@ -299,6 +310,8 @@ define:
           #superfluous: ['filename', 'shape', 'ignore_tags', 'is_training',  'ignore_tags_char', 'ignore_tags_char']
     mode: "valid"
     seqList: True
+    nList: False
+    data_ratio: "ALL"
     #snumber: 1000
     #snumber: 10000
 
@@ -324,6 +337,8 @@ define:
     main:
         train: train_criminal
         valid: valid_criminal
+        #train: train_game
+        #valid: valid_game
     train: 
         class: TrainSettings
         data_loader: 
@@ -386,7 +401,7 @@ define:
             dataset: ^valid_data_game
             batch_size: 2
             num_workers: 2
-        debug_out: False
+        debug_out: True
         debug_class: False
         debug_box: False
         epochs: 1

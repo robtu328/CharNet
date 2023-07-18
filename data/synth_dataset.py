@@ -41,6 +41,8 @@ class SynthDataset(data.Dataset, Configurable):
     mode = State(default="train")
     snumber= State(default=None)
     seqList= State(default=False)
+    data_ratio= State(default="R811")
+    nList= State(default=True)
 
     def __init__(self, data_dir=None, mat_list=None, cmd={}, **kwargs):
         self.load_all(**kwargs)
@@ -48,7 +50,7 @@ class SynthDataset(data.Dataset, Configurable):
         self.mat_list = mat_list or self.mat_list
         
         if 'train' in self.mat_list[0]:
-            self.is_training = True
+            self.is_training = False
         else:
             self.is_training = False
             
@@ -61,8 +63,10 @@ class SynthDataset(data.Dataset, Configurable):
         
         self.get_all_samples(self.snumber)
         
-        self.nList=True
-        if (self.nList):
+        #self.nList=True
+        if (self.seqList):
+            self.map_idx=range(0, self.num_samples)
+        elif (self.nList):
             self.map_idx= random.sample(range(0, len(self.image_paths)), self.num_samples)
             with open("synthrndlist.txt", 'wb') as f:
                 pickle.dump((self.map_idx), f)
@@ -79,16 +83,27 @@ class SynthDataset(data.Dataset, Configurable):
         if (self.seqList):
             self.map_idx = list(range(0,self.num_samples))
         #data_length = self.num_samples
-        self.train_s=0
-        self.train_e=int(self.num_samples*8/10)
+
+
+        if self.data_ratio=="R811":
+            self.train_s=0
+            self.train_e=int(self.num_samples*8/10)
         
-        self.valid_s=self.train_e
-        self.valid_e=self.train_e+int(self.num_samples/10)
+            self.valid_s=self.train_e
+            self.valid_e=self.train_e+int(self.num_samples/10)
         
-        self.test_s =self.valid_e
-        self.test_e =self.num_samples
+            self.test_s =self.valid_e
+            self.test_e =self.num_samples
+        else:
+            self.train_s=0
+            self.train_e=int(self.num_samples)
         
+            self.valid_s=0
+            self.valid_e=int(self.num_samples)
         
+            self.test_s =0
+            self.test_e =int(self.num_samples)
+
 
     def get_all_samples(self, snumber):
         for i in range(len(self.data_dir)):
@@ -258,7 +273,7 @@ class SynthDataset(data.Dataset, Configurable):
          
         
         index_update = self.map_idx[index_update]
-        #index_update = 1991
+        #index_update = 1181
             
         data = {}
         image_path = self.image_paths[index_update]

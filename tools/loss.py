@@ -309,12 +309,15 @@ class char_reg_lossV2(nn.Module):
         self.debug = False
         
         
-    def forward(self, word_instances, polygon_chars, line_chars):
+    def forward(self, word_instances, polygon_chars, line_chars, min_iou=0):
        
         total_number=0
         rec_correct=0
+        
         cnt_dict_showup=np.zeros(len(self.char_dict))
         cnt_dict_correct=np.zeros(len(self.char_dict))
+        cnt_dict_gt=np.zeros(len(self.char_dict))
+
         loss=0
         
         for pic_idx in range(len(polygon_chars)):
@@ -323,6 +326,7 @@ class char_reg_lossV2(nn.Module):
             texts_all=""
             for ltmp in word_instances[pic_idx]:leng=leng+len(ltmp.text);texts_all=texts_all+ltmp.text
             total_number = total_number +  leng
+        
             pred_used=np.zeros(leng)
             
             if (len(polygon_chars[pic_idx]) > 0): #If ground truth char box is not empty, else path required. 
@@ -331,6 +335,8 @@ class char_reg_lossV2(nn.Module):
                 for gchar_idx in range(len(polygon_chars[pic_idx])): # ground truth char index in a pictures
                     gcbox = polygon_chars[pic_idx][gchar_idx].astype('int')
                     gctxt= line_chars[pic_idx][gchar_idx]
+                    dict_idx = self.char_dict_reverse[gctxt.upper()]
+                    cnt_dict_gt[dict_idx] = cnt_dict_gt[dict_idx] + 1
                         
                     char_gpolys = Polygon([gcbox[0], gcbox[1], gcbox[2], gcbox[3]]) #Ground truth Poly
                     if self.debug == True:
@@ -338,6 +344,7 @@ class char_reg_lossV2(nn.Module):
                         
                     text_base=0
                     inter_area=np.zeros(leng)
+                    union_area=np.zeros(leng)
                     
 
                     for wrd_idx in range(len(word_instances[pic_idx])):     #Predit word index
@@ -350,7 +357,7 @@ class char_reg_lossV2(nn.Module):
                             if self.loss_lenbx_eq_lentx_chk:
                                 sys.exit()
                             else:
-                                return 0, 0, 0, 0
+                                return 0, 0, 0, 0, 0
 
                         for char_idx in range(len(pcboxs)): #pred char box within word
                             #print("pcbox len =", len(pcboxs), 'pctxt =', pctxts, '(',len(pctxts),')')
@@ -362,9 +369,10 @@ class char_reg_lossV2(nn.Module):
                             if self.debug == True:
                                 print('ppolys = ', char_ppolys)                   
 
-                            
+                        
                             if char_ppolys.is_valid and char_gpolys.is_valid:
                                 inter_area[text_base+char_idx] = char_ppolys.intersection(char_gpolys).area
+                                union_area[text_base+char_idx] = char_ppolys.union(char_gpolys).area
                             else:
                                 if not char_ppolys.is_valid:
                                     print("invalid_ppoly: ", char_ppolys)
@@ -377,7 +385,10 @@ class char_reg_lossV2(nn.Module):
                     if (len(inter_area)!=0): #find matched prediction box. 
                         
                         pmatch_idx= np.argmax(inter_area) #Find the most match prdict box's index, inter_area len=predict box 
-                        if(inter_area[pmatch_idx] != 0 and pred_used[pmatch_idx] == 0):
+                        iou=inter_area[pmatch_idx]/union_area[pmatch_idx]
+                        
+                        #if(inter_area[pmatch_idx] != 0 and pred_used[pmatch_idx] == 0):
+                        if(iou > min_iou and pred_used[pmatch_idx] == 0):
                             pred_used[pmatch_idx] = 1    
                             pctxt= texts_all[pmatch_idx]
                             dict_idx = self.char_dict_reverse[pctxt.upper()]
@@ -398,7 +409,7 @@ class char_reg_lossV2(nn.Module):
             print("count incorrect, total_number != cnt_dict_showup.sum()")
             sys.exit(0)
                 
-        return total_number, rec_correct, cnt_dict_showup, cnt_dict_correct
+        return total_number, rec_correct, cnt_dict_showup, cnt_dict_correct, cnt_dict_gt
 #        return 0.1, 2, 1
 
 

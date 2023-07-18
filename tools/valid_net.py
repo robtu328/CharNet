@@ -149,6 +149,7 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
         correct_number=0
         cnt_dict_showup = np.zeros(len(char_dict))
         cnt_dict_correct = np.zeros(len(char_dict))
+        cnt_dict_gt = np.zeros(len(char_dict))
         
         debug = False
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
@@ -275,7 +276,7 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
             loss5 = keep_ce_loss(pred_char_fg, pred_char_cls, score_map_char_mask_np, score_map_char)
 
             #debug_out Final Predict word/char boxes showing
-            if train_cfg['debug_out']:
+            if valid_cfg['debug_out']:
                 #boxes_list = [data[1].astype('uint32') for data in ss_word_bboxes[0]]
                 color = 0
                 img=invTrans.lib_inv_trans(images[0])
@@ -301,7 +302,7 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
                 summary.print_(sum1)
             
             #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            number1, correct1, cnt_dict_show1, cnt_dict_correct1 =  cregloss(word_instances, polygon_chars, line_chars)
+            number1, correct1, cnt_dict_show1, cnt_dict_correct1, cnt_dict_gt1 =  cregloss(word_instances, polygon_chars, line_chars, min_iou=0.00)
             loss3=0
             loss4=0 
             #number=1
@@ -319,8 +320,11 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
             correct_number=correct_number+correct1
             cnt_dict_showup = cnt_dict_showup + cnt_dict_show1
             cnt_dict_correct = cnt_dict_correct + cnt_dict_correct1
+            cnt_dict_gt = cnt_dict_gt + cnt_dict_gt1
             ap = np.divide(cnt_dict_correct, cnt_dict_showup)
-            mAP= np.nanmean(ap)            
+            ar = np.divide(cnt_dict_correct, cnt_dict_gt)
+            mAP= np.nanmean(ap)    
+            mAR= np.nanmean(ar)
             
             weighted1=0.3
             weighted2=0.3
@@ -331,7 +335,7 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
             loss_all = loss1*weighted1 + loss2*weighted2 + (loss5)*weighted5
             print ("Epoch:",eidx," No:", iter_cnt, ", Loss all: ", loss_all, \
                    "loss1: ", loss1, "loss2: ", loss2, "loss3: ", loss3, "loss4:", loss4, "loss5:", loss5, \
-                   "accuracy:", correct_number/total_number, "mAP: ", mAP)
+                   "accuracy:", correct_number/total_number, "mAP: ", mAP, "mAR: ", mAR)
             #scheduler.step()
 
             #loss_all=loss_all / back_batch_time
@@ -481,20 +485,21 @@ if __name__ == '__main__':
     #target_char = train_synth_img_loader.data_loader.dataset.targets_char[1]
     #image_path=train_synth_img_loader.data_loader.dataset.image_paths[973]
     #data=train_synth_img_loader.data_loader.dataset.getData(973)
-    image_path=train_synth_img_loader.data_loader.dataset.image_paths[679]
-    data=train_synth_img_loader.data_loader.dataset.getData(679)
-    data['index']=679
+    
+    #image_path=train_synth_img_loader.data_loader.dataset.image_paths[679]
+    #data=train_synth_img_loader.data_loader.dataset.getData(679)
+    #data['index']=679
     
     image_path=train_synth_img_loader.data_loader.dataset.image_paths[172]
     data=train_synth_img_loader.data_loader.dataset.getData(172)
     data['index']=172
     
-    image_path=train_synth_img_loader.data_loader.dataset.image_paths[444]
-    data=train_synth_img_loader.data_loader.dataset.getData(444)
-    data['index']=444
+    #image_path=train_synth_img_loader.data_loader.dataset.image_paths[444]
+    #data=train_synth_img_loader.data_loader.dataset.getData(444)
+    #data['index']=444
     
     imgr = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
-    #imgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    ##imgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
     data['filename']=image_path
     data['data_id']=image_path
     data['image']=imgr

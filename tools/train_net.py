@@ -156,7 +156,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
         correct_number=0
         cnt_dict_showup = np.zeros(len(char_dict))
         cnt_dict_correct = np.zeros(len(char_dict))
-        
+        cnt_dict_gt = np.zeros(len(char_dict))
         
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
             #image format : CHW
@@ -318,7 +318,7 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
                 summary.print_(sum1)
             
             #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            number1, correct1, cnt_dict_show1, cnt_dict_correct1 =  cregloss(word_instances, polygon_chars, line_chars)
+            number1, correct1, cnt_dict_show1, cnt_dict_correct1, cnt_dict_gt1 =  cregloss(word_instances, polygon_chars, line_chars)
             
             
             loss3=0
@@ -342,8 +342,12 @@ def train_model( charnet, args, cfg, img_loader, train_cfg, debug=False):
             correct_number=correct_number+correct1
             cnt_dict_showup = cnt_dict_showup + cnt_dict_show1
             cnt_dict_correct = cnt_dict_correct + cnt_dict_correct1
+            cnt_dict_gt = cnt_dict_gt + cnt_dict_gt1
             ap = np.divide(cnt_dict_correct, cnt_dict_showup)
+            ar = np.divide(cnt_dict_correct, cnt_dict_gt)
             mAP= np.nanmean(ap)
+            mAR= np.nanmean(ar)
+            
             
             #loss1_total = loss1_total + loss1
             #loss2_total = loss2_total + loss2
@@ -530,6 +534,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
         debug = False
         cnt_dict_showup = np.zeros(len(char_dict))
         cnt_dict_correct = np.zeros(len(char_dict))
+        cnt_dict_gt = np.zeros(len(char_dict))
 
         
         for (images, score_map, geo_map, training_mask, score_map_char, geo_map_char, training_mask_char, images_np, polygon_chars, line_chars, indexes) in img_loader: 
@@ -672,7 +677,7 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
                 summary.print_(sum1)
             
             #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            number1, correct1, cnt_dict_show1, cnt_dict_correct1 =  cregloss(word_instances, polygon_chars, line_chars)
+            number1, correct1, cnt_dict_show1, cnt_dict_correct1, cnt_dict_gt1 =  cregloss(word_instances, polygon_chars, line_chars)
             loss3=0
             loss4=0 
             #number=1
@@ -690,8 +695,11 @@ def validate_model( charnet, args, cfg, img_loader, debug=False):
             correct_number=correct_number+correct1
             cnt_dict_showup = cnt_dict_showup + cnt_dict_show1
             cnt_dict_correct = cnt_dict_correct + cnt_dict_correct1
+            cnt_dict_gt = cnt_dict_gt + cnt_dict_gt1
             ap = np.divide(cnt_dict_correct, cnt_dict_showup)
-            mAP= np.nanmean(ap)            
+            ar = np.divide(cnt_dict_correct, cnt_dict_gt)
+            mAP= np.nanmean(ap)  
+            mAR= np.nanmean(ar) 
                         
             
             weighted1=0.3
