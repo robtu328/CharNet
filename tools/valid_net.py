@@ -108,7 +108,7 @@ def params_gen( net):
     return params
 
 
-def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
+def validate_model( charnet, args, cfg, img_loader, valid_cfg, iou_setting, debug=False):
        
     #debug=True
     
@@ -302,7 +302,7 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
                 summary.print_(sum1)
             
             #loss4, number, correct = cmatch(char_bboxes, char_scores, polygon_chars, line_chars)
-            number1, correct1, cnt_dict_show1, cnt_dict_correct1, cnt_dict_gt1 =  cregloss(word_instances, polygon_chars, line_chars, min_iou=0.00)
+            number1, correct1, cnt_dict_show1, cnt_dict_correct1, cnt_dict_gt1 =  cregloss(word_instances, polygon_chars, line_chars, min_iou=iou_setting)
             loss3=0
             loss4=0 
             #number=1
@@ -405,7 +405,8 @@ def validate_model( charnet, args, cfg, img_loader, valid_cfg, debug=False):
     
     params=params_gen(charnet)
     
-    return params
+    return params, ap, ar, mAP, mAR
+
 
 
 
@@ -590,7 +591,27 @@ if __name__ == '__main__':
     #Trainsetting(Trainsetting_conf['Experiment']['train']])
 #Train without profile
     #train_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg)
-    validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg)
+    params, ap50, ar50, mAP50, mAR50=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.5)
+    params, ap75, ar75, mAP75, mAR75=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.75)
+    
+    ap=0.0
+    ar=0.0
+    mAP=0.0
+    mAR=0.0
+    
+    for idx in range(0, 10):
+        params, aptmp, artmp, mAPtmp, mARtmp=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.5+0.05*idx)
+        ap=ap+aptmp
+        ar=ar+artmp
+        mAP=mAP+mAPtmp
+        mAR=mAR+mARtmp
+        
+
+    print ("mAP50: ", mAP50, "mAR50: ", mAR50)
+    print ("mAP75: ", mAP75, "mAR75: ", mAR75)
+    print ("mAP: ", mAP/10, "mAR: ", mAR/10)
+
+
 #Train code with profiling
     #cProfile.run('train_model(args, cfg, train_synth_img_loader.data_loader)', 'restats')
     #p = pstats.Stats('restats')
