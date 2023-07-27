@@ -15,7 +15,8 @@ Envirnment build up by using conda commands.
 conda create --name cda113 python=3.8
 conda activate cda113
 
-conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+#conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3.1 -c pytorch
 conda install -c conda-forge opencv
 conda install -c anaconda pyyaml
 conda install -c conda-forge tqdm
