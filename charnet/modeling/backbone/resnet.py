@@ -370,9 +370,32 @@ def resnet50():
     )
 
 
+def resnet101():
+    return ResNet(
+        stem_module=StemWithBatchNorm,
+        stage_specs=ResNet101FPNStagesTo5,
+        transformation_module=BottleneckWithBatchNorm,
+        stride_in_1x1=True
+    )
+
+def resnet152():
+    return ResNet(
+        stem_module=StemWithBatchNorm,
+        stage_specs=ResNet152FPNStagesTo5,
+        transformation_module=BottleneckWithBatchNorm,
+        stride_in_1x1=True
+    )
+
+
+
+
+
+
 if __name__ == "__main__":
     from charnet.modeling.backbone.decoder import Decoder
     model = resnet50()
+    model1 = resnet101()
+    model2 = resnet152()
     decoder = Decoder([256, 512, 1024, 2048], 256)
 
     # for k, _ in model.named_parameters():
@@ -387,7 +410,13 @@ if __name__ == "__main__":
     im = torch.ones((1, 3, 1025, 513))  # .cuda()
     # model.cuda()
     model.eval()
+    model1.eval()
+    model2.eval()
     outputs = model(im)
+    outputs1 = model1(im)
+    outputs2 = model2(im)
+    
     for o in outputs:
         print(o.mean(), o.size())
-    decoder(outputs)
+    dout=decoder(outputs)
+    print(dout.size())

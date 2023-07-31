@@ -7,7 +7,7 @@
 
 import torch
 from torch import nn
-from charnet.modeling.backbone.resnet import resnet50
+from charnet.modeling.backbone.resnet import resnet50, resnet101, resnet152
 #from charnet.modeling.backbone.hourglassGCN import hourglass88
 from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN, Residual
 #from charnet.modeling.backbone.hourglass import hourglass88
@@ -135,6 +135,15 @@ class CharNet(nn.Module):
         #self.backbone = backbone
         if cfg.backbone_mode == 'hourglass88GCN':
             self.backbone = hourglass88GCN()
+        elif cfg.backbone_mode == 'resnet50':
+            self.backbone = resnet50()
+            self.decoder = Decoder([256, 512, 1024, 2048], 256)
+        elif cfg.backbone_mode == 'resnet101':
+            self.backbone = resnet101()
+            self.decoder = Decoder([256, 512, 1024, 2048], 256)
+        elif cfg.backbone_mode == 'resnet152':
+            self.backbone = resnet152()
+            self.decoder = Decoder([256, 512, 1024, 2048], 256)    
         else:
             self.backbone = hourglass88()
 
@@ -186,7 +195,11 @@ class CharNet(nn.Module):
         #myconv = nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False)
         #myconv.cuda()
         #im1=im.clone()
-        features = self.backbone(im)
+        if cfg.backbone_mode == 'resnet50' or cfg.backbone_mode == 'resnet101' or cfg.backbone_mode == 'resnet152':
+            resout = self.backbone(im)
+            features = self.decoder(resout)
+        else:
+            features = self.backbone(im)
         #features1 = self.interImage(im)
 
         #Internet

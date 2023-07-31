@@ -591,6 +591,16 @@ if __name__ == '__main__':
     #Trainsetting(Trainsetting_conf['Experiment']['train']])
 #Train without profile
     #train_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg)
+    
+    debug_parameters=True
+    if debug_parameters:
+        tcnt=0
+        for name, param in charnet.named_parameters():
+            if param.requires_grad:
+                print("name = ", name,", size of = ", param.data.size(), "product = ", np.product(param.data.size()))
+                tcnt=tcnt+np.product(param.data.size())
+
+    
     params, ap50, ar50, mAP50, mAR50=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.5)
     params, ap75, ar75, mAP75, mAR75=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.75)
     
