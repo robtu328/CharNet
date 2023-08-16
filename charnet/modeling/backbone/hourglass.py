@@ -178,7 +178,7 @@ class HourGlassNet(nn.Module):
     def __init__(self, n, channels, blocks):
         super(HourGlassNet, self).__init__()
         
-        core_op=getattr(opsm, 'DCNv3_pytorch')
+        #core_op=getattr(opsm, 'DCNv3_pytorch')
         
         
         self.pre = nn.Sequential(
@@ -186,6 +186,10 @@ class HourGlassNet(nn.Module):
             _norm_func(128),
             nn.ReLU(),
             Residual(128, 256, stride=2)    #channels in= 128, channels out=256
+            #nn.Conv2d(3, 256, kernel_size=7, stride=2, padding=3, bias=False), #channels = 128
+            #_norm_func(256),
+            #nn.ReLU(),
+            #Residual(256, 512, stride=2)    #channels in= 128, channels out=256            
         )
         hourglass_blocks = []
         for _ in range(2):
@@ -235,6 +239,11 @@ class HourGlassNetGCN(nn.Module):
 
 def hourglass88():
     return HourGlassNet(3, [256, 256, 256, 512], [2, 2, 2, 2])
+
+def hourglass88v1():
+    return HourGlassNet(3, [256, 512, 512, 512], [2, 2, 2, 2])
+    #return HourGlassNet(3, [256, 256, 256, 512], [2, 2, 2, 2])
+
 
 def hourglass88GCN():
     return HourGlassNetGCN(3, [256, 256, 256, 512], [2, 2, 2, 2])

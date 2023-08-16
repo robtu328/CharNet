@@ -519,7 +519,7 @@ if __name__ == '__main__':
     data3=myprocess[2](data2)
     data4=myprocess[3](data3)
     data5=myprocess[4](data4)
-    data6=myprocess[5](data5)
+    #data6=myprocess[5](data5)
 
     data_oneT=train_synth_img_loader.data_loader.dataset[1991]
     debug1=False
@@ -599,7 +599,8 @@ if __name__ == '__main__':
             if param.requires_grad:
                 print("name = ", name,", size of = ", param.data.size(), "product = ", np.product(param.data.size()))
                 tcnt=tcnt+np.product(param.data.size())
-
+    
+    print ("Parameters count = ", tcnt)
     
     params, ap50, ar50, mAP50, mAR50=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.5)
     params, ap75, ar75, mAP75, mAR75=validate_model(charnet, args, cfg, train_synth_img_loader.data_loader, train_synth_cfg, 0.75)
@@ -620,7 +621,7 @@ if __name__ == '__main__':
     print ("mAP50: ", mAP50, "mAR50: ", mAR50)
     print ("mAP75: ", mAP75, "mAR75: ", mAR75)
     print ("mAP: ", mAP/10, "mAR: ", mAR/10)
-
+    print ("Parameters count = ", tcnt)
 
 #Train code with profiling
     #cProfile.run('train_model(args, cfg, train_synth_img_loader.data_loader)', 'restats')

@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from charnet.modeling.backbone.resnet import resnet50, resnet101, resnet152
 #from charnet.modeling.backbone.hourglassGCN import hourglass88
-from charnet.modeling.backbone.hourglass import hourglass88, hourglass88GCN, Residual
+from charnet.modeling.backbone.hourglass import hourglass88, hourglass88v1, hourglass88GCN, Residual
 #from charnet.modeling.backbone.hourglass import hourglass88
 from charnet.modeling.backbone.decoder import Decoder
 from collections import OrderedDict
@@ -143,11 +143,14 @@ class CharNet(nn.Module):
             self.decoder = Decoder([256, 512, 1024, 2048], 256)
         elif cfg.backbone_mode == 'resnet152':
             self.backbone = resnet152()
-            self.decoder = Decoder([256, 512, 1024, 2048], 256)    
+            self.decoder = Decoder([256, 512, 1024, 2048], 256)  
+        elif cfg.backbone_mode == 'hourglass88v1':
+            self.backbone = hourglass88v1()
         else:
             self.backbone = hourglass88()
 
         decoder_channels = 256
+        #decoder_channels = 512
         bottleneck_channels = 128
         self.word_detector = WordDetector(
             decoder_channels, bottleneck_channels,
